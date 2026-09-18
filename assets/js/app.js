@@ -142,6 +142,12 @@ function renderChrome() {
     wa.setAttribute("aria-label", t("whatsappAria"));
   }
   wa.href = APP_CONFIG.whatsapp.link;
+  if (!wa.dataset.bound) {
+    wa.dataset.bound = "true";
+    wa.addEventListener("click", () => {
+      if (typeof Analytics !== "undefined") Analytics.trackWhatsAppClick("floating_button");
+    });
+  }
 
   $("#langToggle").addEventListener("click", () => {
     state.lang = state.lang === "ar" ? "en" : "ar";
@@ -267,6 +273,9 @@ function bindSetup() {
     } else {
       computeLimit();
       state.step = "catalog";
+      if (typeof Analytics !== "undefined") {
+        Analytics.trackScheduleStarted(state);
+      }
     }
     persist();
     renderAll();
@@ -293,6 +302,10 @@ function renderNotReady() {
 function bindNotReady() {
   const back = $("#backBtn");
   if (back) back.addEventListener("click", goBackToSetup);
+  const waBtn = $(".notready-actions a");
+  if (waBtn) waBtn.addEventListener("click", () => {
+    if (typeof Analytics !== "undefined") Analytics.trackWhatsAppClick("not_ready_page");
+  });
 }
 
 function goBackToSetup() {
@@ -606,6 +619,7 @@ function bindPlanner() {
   $$(".course-check").forEach((box) => {
     box.addEventListener("change", () => {
       const idx = Number(box.dataset.idx);
+      const course = COURSES[idx];
       if (box.checked) {
         if (state.selected.length >= state.maxCourses) {
           box.checked = false;
@@ -614,10 +628,18 @@ function bindPlanner() {
           setTimeout(() => box.closest(".course-card")?.classList.remove("shake"), 400);
           return;
         }
-        if (!state.selected.includes(idx)) state.selected.push(idx);
+        if (!state.selected.includes(idx)) {
+          state.selected.push(idx);
+          if (typeof Analytics !== "undefined") {
+            Analytics.trackCourseToggled(course?.code, tr(course?.name), true);
+          }
+        }
       } else {
         state.selected = state.selected.filter((i) => i !== idx);
         delete state.picks[idx];
+        if (typeof Analytics !== "undefined") {
+          Analytics.trackCourseToggled(course?.code, tr(course?.name), false);
+        }
       }
       computeLimit();
       persist();
@@ -628,8 +650,17 @@ function bindPlanner() {
   $$(".section-select").forEach((sel) => {
     sel.addEventListener("change", () => {
       const idx = Number(sel.dataset.idx);
-      if (sel.value === "") delete state.picks[idx];
-      else state.picks[idx] = Number(sel.value);
+      const course = COURSES[idx];
+      if (sel.value === "") {
+        delete state.picks[idx];
+      } else {
+        const pickIdx = Number(sel.value);
+        state.picks[idx] = pickIdx;
+        if (typeof Analytics !== "undefined") {
+          const sec = course?.sections[pickIdx];
+          Analytics.trackSectionPicked(tr(course?.name), sec ? Timetable.sectionLabel(sec) : String(pickIdx));
+        }
+      }
       persist();
       renderAll();
     });
@@ -638,8 +669,12 @@ function bindPlanner() {
   $$(".reg-remove").forEach((btn) => {
     btn.addEventListener("click", () => {
       const idx = Number(btn.dataset.idx);
+      const course = COURSES[idx];
       state.selected = state.selected.filter((i) => i !== idx);
       delete state.picks[idx];
+      if (typeof Analytics !== "undefined") {
+        Analytics.trackCourseToggled(course?.code, tr(course?.name), false);
+      }
       computeLimit();
       persist();
       renderAll();
@@ -653,6 +688,10 @@ function bindPlanner() {
   const doExport = $("#doExport");
   if (doExport) doExport.addEventListener("click", () => {
     const mode = (document.querySelector('input[name="exportMode"]:checked') || {}).value || "full";
+    if (typeof Analytics !== "undefined") {
+      const model = Timetable.build(state);
+      Analytics.trackImageExported(mode, state, (model.conflicts || []).length);
+    }
     Timetable.exportPNG(mode);
     exportPanel.hidden = true;
   });
@@ -677,4 +716,9 @@ function renderAll() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", renderAll);
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof Analytics !== "undefined") {
+    Analytics.init();
+  }
+  renderAll();
+});

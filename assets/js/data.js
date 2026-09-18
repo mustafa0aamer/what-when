@@ -32,6 +32,10 @@ const APP_CONFIG = {
     link: "https://wa.me/201554531921",
   },
 
+  // Google Analytics 4 Measurement ID (e.g. "G-XXXXXXXXXX")
+  // Paste your Measurement ID here to track private visitors, schedules, & PNG exports
+  googleAnalyticsId: "G-PVJS7FP8DC",
+
   departments: ["CS", "IT", "IS", "DS", "AI"],
 
   // Minimum passed credit hours required to use the tool (level 4)
