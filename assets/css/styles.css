@@ -392,20 +392,9 @@ select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent
  * ========================================================================== */
 
 /* ------------------------------------------------------ Planner layout */
-.planner-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 430px;
-  gap: 1.5rem;
-  align-items: start;
-  margin-top: 1.25rem;
-}
-.tt-sticky {
-  position: sticky;
-  top: 76px;
-  max-height: calc(100vh - 92px);
-  overflow-y: auto;
-  padding-bottom: 1rem;
-}
+.planner-layout { display: block; }
+.catalog-col { margin: 1.5rem 0; }
+.tt-sticky { position: static; max-height: none; overflow: visible; }
 
 .catalog-header { margin-bottom: 1.25rem; position: relative; }
 .view-toggle {
@@ -532,6 +521,21 @@ select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent
   position: sticky;
   top: 0;
 }
+.tt-slothead {
+  background: var(--surface-soft);
+  padding: .5rem .3rem;
+  text-align: center;
+  position: sticky;
+  top: 0;
+}
+.tt-dayrow {
+  background: var(--surface-soft);
+  width: 86px;
+  padding: .45rem .4rem;
+  text-align: center;
+  font-size: .82rem;
+  font-weight: 700;
+}
 .tt-slot {
   background: var(--surface-soft);
   width: 86px;
@@ -640,7 +644,7 @@ select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent
   transition: transform .15s;
 }
 .wa-float:hover { transform: scale(1.06); }
-.wa-float svg { width: 28px; height: 28px; }
+.wa-float svg { width: 28px; height: 28px; display: block; flex: none; }
 
 /* ----------------------------------------------------------- Responsive */
 @media (max-width: 1080px) {
@@ -653,5 +657,79 @@ select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent
   .timetable-panel { padding: .8rem; }
   .tt-table { min-width: 780px; }
   .wa-float { width: 48px; height: 48px; bottom: 1rem; inset-inline-end: 1rem; }
+}
+
+/* ===================== PHASE 3: registered list, toast, picked chip ===== */
+.registered-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.1rem;
+  margin: 1.5rem 0;
+}
+.registered-title { margin: 0 0 .2rem; font-size: 1.1rem; }
+.registered-subtitle { margin: 0 0 .9rem; font-size: .85rem; color: var(--text-muted); }
+.registered-empty { margin: 0; font-size: .9rem; color: var(--text-muted); }
+
+.reg-list { display: flex; flex-direction: column; gap: .5rem; }
+.reg-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .8rem;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .55rem .8rem;
+  background: var(--surface);
+  transition: border-color .15s, background .15s;
+}
+.reg-item--clash {
+  border-color: #fca5a5;
+  background: var(--danger-soft);
+}
+.reg-info { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; min-width: 0; }
+.reg-clashicon { display: inline-flex; width: 17px; height: 17px; color: var(--danger); flex: none; }
+.reg-clashicon svg { width: 100%; height: 100%; }
+.reg-name { font-weight: 600; font-size: .92rem; }
+.reg-actions { display: flex; align-items: center; gap: .5rem; flex: none; }
+.reg-actions .section-select { min-width: 300px; max-width: 100%; }
+.reg-remove { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; color: var(--text-muted); }
+.reg-remove:hover { background: var(--danger-soft); color: var(--danger); }
+.reg-remove svg { width: 15px; height: 15px; }
+
+.course-count--picked { display: inline-flex; align-items: center; gap: .3rem; color: var(--accent-strong); }
+.course-count--picked svg { width: 13px; height: 13px; }
+
+.toast {
+  position: fixed;
+  bottom: 5.5rem;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  max-width: 92vw;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: #1e293b;
+  color: #fff;
+  padding: .65rem 1.15rem;
+  border-radius: 999px;
+  font-size: .88rem;
+  font-weight: 600;
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, .45);
+  z-index: 120;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .25s, transform .25s;
+  pointer-events: none;
+}
+.toast.is-visible { opacity: 1; transform: none; }
+.toast svg { width: 16px; height: 16px; color: #fbbf24; flex: none; }
+
+@media (max-width: 640px) {
+  .reg-actions { width: 100%; }
+  .reg-actions .section-select { min-width: 0; flex: 1; }
 }
 

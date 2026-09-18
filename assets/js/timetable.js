@@ -1,9 +1,8 @@
 /* ============================================================================
- * What When — TIMETABLE ENGINE (Phase 2)
- * Pure logic shared by the on-screen grid and the PNG exporter.
+ * What When — TIMETABLE ENGINE
  *   Timetable.build(state)  -> { cells, placements, conflicts }
- *   Timetable.sectionLabel  -> one-line Arabic/English label for a section
- *   Timetable.exportPNG     -> renders the grid to a <canvas> and downloads PNG
+ *   Timetable.sectionLabel  -> one-line label for a section option
+ *   Timetable.exportPNG     -> transposed grid drawn on a 2x <canvas> -> PNG
  *
  * Conflict rules (per spec):
  *   lecture vs lecture        -> type "lecture" (RED, unfixable by sections)
@@ -79,24 +78,26 @@ const Timetable = {
     if (!model.placements.length) { window.alert(t("emptyGrid")); return; }
 
     const lang = state.lang;
-    const F = lang === "ar"
-      ? '"IBM Plex Sans Arabic", Tahoma, sans-serif'
-      : 'Inter, "Segoe UI", sans-serif';
+    const rtl = lang === "ar";
+    const F = rtl ? '"IBM Plex Sans Arabic", Tahoma, sans-serif'
+                  : 'Inter, "Segoe UI", sans-serif';
 
+    /* Grid axes — same orientation as the on-screen table:
+       rows = days, columns = Slot 1..7 (both times in the header). */
     const days  = mode === "full" ? DAYS  : DAYS.filter((d) => model.placements.some((p) => p.day === d.key));
     const slots = mode === "full" ? SLOTS : SLOTS.filter((s) => model.placements.some((p) => p.slot === s.n));
 
     const C = {
-      border: "#e2e8f0", head: "#f1f5f9", text: "#1e293b", muted: "#64748b",
-      accent: "#0f766e", accentSoft: "#ecfdf9",
-      danger: "#dc2626", dangerBg: "#fef2f2",
-      warn: "#d97706", warnBg: "#fffbeb", faculty: "#cbd5e1",
+      border: "#cbd5e1", head: "#f1f5f9", text: "#1e293b", muted: "#64748b",
+      accent: "#0f766e",
+      danger: "#dc2626", dangerBg: "#fee2e2",
+      warn: "#d97706", warnBg: "#fef3c7",
+      faculty: "#94a3b8",
     };
 
-    const labelW = 100, colW = 180, pad = 8;
-    const titleH = 58, colHeadH = 32, footH = 44;
+    const dayW = 96, colW = 192, pad = 9, lineH = 13;
 
-    /* -- text wrapping helper -- */
+    /* ---- 1. measure everything BEFORE choosing canvas size ---- */
     const measurer = document.createElement("canvas").getContext("2d");
     const wrap = (text, font, maxW) => {
       measurer.font = font;
@@ -111,107 +112,118 @@ const Timetable = {
       return out.length ? out : [""];
     };
 
-    /* -- the lines each placement draws -- */
-    const linesFor = (p) => {
-      const code = p.course.code || "";
+    /* each placement -> ordered [{txt,font,color}] (pre-wrapped) */
+    const blocksFor = (p) => {
+      const clashColor = p.conflict === "lecture" ? C.danger : C.warn;
+      const base = p.conflict ? clashColor : null;
+      const w = (txt, font, color) =>
+        wrap(txt, font, colW - pad * 2 - 10).map((l) => ({ txt: l, font, color: base || color }));
+
+      const code = p.course.code ? p.course.code + " " : "";
       if (p.kind === "section") {
         return [
-          { txt: `${t("sectionWord")} ${p.labels.join(", ")}`, font: `700 10px ${F}`, color: C.accent },
-          { txt: `${code} ${p.course.name}`.trim(), font: `600 11px ${F}`, color: C.text },
-          { txt: p.place, font: `10px ${F}`, color: C.muted },
+          ...w(`${t("sectionWord")} ${p.labels.join(", ")}`, `700 10px ${F}`, C.accent),
+          ...w((code + p.course.name).trim(), `600 11px ${F}`, C.text),
+          ...w(p.place, `10px ${F}`, C.muted),
         ];
       }
       if (!p.first) {
         return [
-          { txt: `${t("lectureWord")} · ${t("continuation")}`, font: `700 10px ${F}`, color: C.accent },
-          { txt: `${code} ${p.course.name}`.trim(), font: `600 11px ${F}`, color: C.text },
+          ...w(`${t("lectureWord")} · ${t("continuation")}`, `700 10px ${F}`, C.accent),
+          ...w((code + p.course.name).trim(), `600 11px ${F}`, C.text),
         ];
       }
-      const lines = [
-        { txt: t("lectureWord"), font: `700 10px ${F}`, color: C.accent },
-        { txt: `${code} ${p.course.name}`.trim(), font: `600 11px ${F}`, color: C.text },
-        { txt: p.place, font: `10px ${F}`, color: C.muted },
+      const b = [
+        ...w(t("lectureWord"), `700 10px ${F}`, C.accent),
+        ...w((code + p.course.name).trim(), `600 11px ${F}`, C.text),
+        ...w(p.place, `10px ${F}`, C.muted),
       ];
-      if (p.doctor) lines.push({ txt: p.doctor, font: `10px ${F}`, color: C.muted });
-      return lines;
+      if (p.doctor) b.push(...w(p.doctor, `10px ${F}`, C.muted));
+      return b;
     };
 
-    /* -- row heights: tallest cell wins -- */
-    const rowH = slots.map((sl) => {
-      let maxLines = 1;
-      days.forEach((d) => {
+    /* cell content map + row heights (tallest cell wins) */
+    const cellBlocks = {};
+    const rowH = days.map((d) => {
+      let max = 30;
+      slots.forEach((sl) => {
         const items = model.cells[`${d.key}:${sl.n}`] || [];
-        let n = 0;
-        items.forEach((p) => linesFor(p).forEach((l) => { n += wrap(l.txt, l.font, colW - pad * 2).length; }));
-        maxLines = Math.max(maxLines, n);
+        const blocks = items.flatMap(blocksFor);
+        cellBlocks[`${d.key}:${sl.n}`] = blocks;
+        const h = blocks.length
+          ? blocks.length * lineH + Math.max(0, items.length - 1) * 4 + pad * 2 + 4
+          : (FACULTY_ACTIVITY.day === d.key && FACULTY_ACTIVITY.slot === sl.n ? 30 : 0);
+        max = Math.max(max, h);
       });
-      return Math.max(40, maxLines * 13 + pad * 2 + 6);
+      return Math.max(34, max);
     });
 
-    const W = labelW + days.length * colW + 2;
-    const H = titleH + colHeadH + rowH.reduce((a, b) => a + b, 0) + footH + 2;
+    const titleH = 58, headH = 42, footH = 46;
+    const W = dayW + slots.length * colW + 2;
+    const H = titleH + headH + rowH.reduce((a, b) => a + b, 0) + footH + 2;
+
     const cv = document.createElement("canvas");
-    cv.width = W * 2; cv.height = H * 2;           // 2x for crisp output
+    cv.width = W * 2; cv.height = H * 2;
     const ctx = cv.getContext("2d");
     ctx.scale(2, 2);
-
-    const rtl = lang === "ar";
-    const alignX = (x) => (rtl ? W - x : x);       // logical -> physical
-
-    /* -- frame + title -- */
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, W, H);
-    ctx.textAlign = rtl ? "right" : "left";
     ctx.direction = rtl ? "rtl" : "ltr";
 
-    ctx.fillStyle = C.text;
-    ctx.font = `700 16px ${F}`;
-    ctx.textAlign = "center";
-    ctx.fillText(tr(APP_CONFIG.toolName), W / 2, 26);
-    ctx.fillStyle = C.muted;
-    ctx.font = `11px ${F}`;
-    ctx.fillText(tr(APP_CONFIG.academicTerm), W / 2, 44);
-    ctx.textAlign = rtl ? "right" : "left";
+    const txt = (text, x, y, { font = `11px ${F}`, color = C.text, align = null } = {}) => {
+      ctx.font = font; ctx.fillStyle = color;
+      ctx.textAlign = align || (rtl ? "right" : "left");
+      ctx.fillText(text, x, y);
+    };
+    /* x-origin for a cell's text, honoring direction */
+    const tx = (px) => (rtl ? px + colW - pad - 5 : px + pad + 5);
 
-    /* -- column headers -- */
+    /* ---- 2. frame + title ---- */
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+
+    txt(tr(APP_CONFIG.toolName), W / 2, 27, { font: `700 16px ${F}`, align: "center" });
+    txt(tr(APP_CONFIG.academicTerm), W / 2, 45, { font: `11px ${F}`, color: C.muted, align: "center" });
+
+    /* ---- 3. header row: corner + Slot 1..7 with both times ---- */
     let y = titleH;
     ctx.fillStyle = C.head;
-    ctx.fillRect(1, y, W - 2, colHeadH);
+    ctx.fillRect(1, y, W - 2, headH);
     ctx.strokeStyle = C.border;
+    ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
-    ctx.fillStyle = C.muted;
-    ctx.font = `700 10px ${F}`;
-    ctx.fillText(t("slotWord"), alignX(labelW / 2 + (rtl ? 0 : 0)), y + 20);
-    days.forEach((d, i) => {
-      const cx = labelW + i * colW + colW / 2;
-      ctx.fillStyle = C.text;
-      ctx.font = `700 12px ${F}`;
-      ctx.textAlign = "center";
-      ctx.fillText(tr(d), alignX(cx), y + 21);
-      ctx.textAlign = rtl ? "right" : "left";
+    ctx.beginPath();
+    ctx.moveTo(1, y + headH + 0.5); ctx.lineTo(W - 1, y + headH + 0.5);
+    ctx.strokeStyle = C.border; ctx.stroke();
+
+    txt(t("dayWord"), dayW / 2, y + headH / 2 + 4, { font: `700 11px ${F}`, color: C.muted, align: "center" });
+
+    slots.forEach((sl, i) => {
+      const px = dayW + i * colW;
+      ctx.strokeStyle = C.border;
+      ctx.beginPath();
+      ctx.moveTo(px + 0.5, y); ctx.lineTo(px + 0.5, y + headH);
+      ctx.stroke();
+      const cx = px + colW / 2;
+      txt(`${t("slotWord")} ${sl.n}`, cx, y + 17, { font: `700 11px ${F}`, align: "center" });
+      txt(sl.short, cx, y + 30, { font: `9px ${F}`, color: C.muted, align: "center" });
+      txt(sl.long, cx, y + 40, { font: `9px ${F}`, color: C.muted, align: "center" });
     });
 
-    /* -- rows -- */
-    slots.forEach((sl, r) => {
-      const ry = y + colHeadH + rowH.slice(0, r).reduce((a, b) => a + b, 0);
+    /* ---- 4. day rows ---- */
+    let ry = y + headH;
+    days.forEach((d, r) => {
       const rh = rowH[r];
 
+      /* day label cell */
       ctx.fillStyle = C.head;
-      ctx.fillRect(1, ry + 1, labelW - 1, rh - 1);
-      ctx.fillStyle = C.text;
-      ctx.font = `700 11px ${F}`;
-      ctx.textAlign = "center";
-      ctx.fillText(`${t("slotWord")} ${sl.n}`, alignX(labelW / 2), ry + rh / 2 - 2);
-      ctx.fillStyle = C.muted;
-      ctx.font = `9px ${F}`;
-      ctx.fillText(sl.short, alignX(labelW / 2), ry + rh / 2 + 11);
-      ctx.fillText(sl.long, alignX(labelW / 2), ry + rh / 2 + 22);
-      ctx.textAlign = rtl ? "right" : "left";
+      ctx.fillRect(1, ry + 1, dayW - 1, rh - 1);
+      txt(tr(d), dayW / 2, ry + rh / 2 + 4, { font: `700 12px ${F}`, align: "center" });
 
-      days.forEach((d, i) => {
-        const px = labelW + i * colW;
+      slots.forEach((sl, i) => {
+        const px = dayW + i * colW;
         const items = model.cells[`${d.key}:${sl.n}`] || [];
+        const blocks = cellBlocks[`${d.key}:${sl.n}`] || [];
 
+        /* cell frame */
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(px + 1, ry + 1, colW - 1, rh - 1);
 
@@ -222,51 +234,53 @@ const Timetable = {
           ctx.fillStyle = isLec ? C.danger : C.warn;
           ctx.fillRect(rtl ? px + colW - 4 : px + 1, ry + 1, 3, rh - 1);
         } else if (FACULTY_ACTIVITY.day === d.key && FACULTY_ACTIVITY.slot === sl.n) {
-          ctx.fillStyle = C.faculty;
-          ctx.font = `italic 9px ${F}`;
-          ctx.textAlign = "center";
-          ctx.fillText(tr(FACULTY_ACTIVITY.label), alignX(px + colW / 2), ry + rh / 2 + 3);
-          ctx.textAlign = rtl ? "right" : "left";
+          txt(tr(FACULTY_ACTIVITY.label), px + colW / 2, ry + rh / 2 + 3,
+              { font: `italic 9px ${F}`, color: C.faculty, align: "center" });
         }
 
+        /* cell borders */
+        ctx.strokeStyle = C.border;
+        ctx.beginPath();
+        ctx.moveTo(px + 0.5, ry); ctx.lineTo(px + 0.5, ry + rh);
+        ctx.moveTo(px, ry + rh + 0.5); ctx.lineTo(px + colW, ry + rh + 0.5);
+        ctx.stroke();
+
+        /* text, with a small gap between stacked placements */
         let ty = ry + pad + 9;
+        let prevPlacementEnd = 0, drawn = 0;
         items.forEach((p) => {
-          linesFor(p).forEach((l) => {
-            const color = p.conflict
-              ? (p.conflict === "lecture" ? C.danger : C.warn)
-              : l.color;
-            wrap(l.txt, l.font, colW - pad * 2 - 6).forEach((line) => {
-              ctx.font = l.font;
-              ctx.fillStyle = color;
-              ctx.fillText(line, alignX(rtl ? px + colW - pad - 6 : px + pad + 6), ty);
-              ty += 13;
-            });
+          const n = blocksFor(p).length;
+          if (drawn > 0) ty += 4;
+          blocks.slice(prevPlacementEnd, prevPlacementEnd + n).forEach((l) => {
+            txt(l.txt, tx(px), ty, { font: l.font, color: l.color });
+            ty += lineH;
           });
-          ty += 3;
+          prevPlacementEnd += n;
+          drawn++;
         });
       });
+
+      /* day-column separator */
+      ctx.strokeStyle = C.border;
+      ctx.beginPath();
+      ctx.moveTo(dayW + 0.5, ry); ctx.lineTo(dayW + 0.5, ry + rh);
+      ctx.stroke();
+
+      ry += rh;
     });
 
-    /* -- footer -- */
-    const fy = H - footH + 4;
-    const usedHours = state.selected.length * APP_CONFIG.creditHoursPerCourse +
+    /* ---- 5. footer ---- */
+    const usedH = state.selected.length * APP_CONFIG.creditHoursPerCourse +
       (state.project ? APP_CONFIG.project.creditHours : 0);
-    ctx.fillStyle = C.muted;
-    ctx.font = `10px ${F}`;
-    ctx.textAlign = "center";
-    ctx.fillText(
-      `${state.dept} · ${usedHours}/${state.hoursLimit}h · ${tr(APP_CONFIG.academicTerm)}`,
-      W / 2, fy + 12
-    );
-    ctx.font = `italic 9px ${F}`;
-    ctx.fillText(t("footerNote"), W / 2, fy + 28);
-    ctx.textAlign = rtl ? "right" : "left";
+    txt(`${state.dept} · ${usedH}/${state.hoursLimit}h · ${tr(APP_CONFIG.academicTerm)}`,
+        W / 2, H - footH + 16, { font: `10px ${F}`, color: C.muted, align: "center" });
+    txt(t("footerNote"), W / 2, H - footH + 32, { font: `italic 9px ${F}`, color: C.muted, align: "center" });
 
-    /* -- download -- */
+    /* ---- 6. download ---- */
     cv.toBlob((blob) => {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `what-when-timetable-${mode}.png`;
+      a.download = `what-when-${mode}.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     }, "image/png");

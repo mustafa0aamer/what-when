@@ -1,8 +1,8 @@
 /* ============================================================================
- * What When — APPLICATION LOGIC
- * Phase 1: setup flow + course catalog + course-limit enforcement
- * Phase 2: section picking + live timetable grid + conflict detection + PNG export
- * Phase 3 (later): admin page
+ * What When / هجدول — APPLICATION LOGIC
+ * Phase 1: setup flow + limits
+ * Phase 2: catalog, section picking, live grid, conflicts, PNG export
+ * Phase 3: transposed grid, registered-courses list, limit toast, stacking
  * Structure: Store -> state -> utilities -> views (render/bind) -> renderAll
  * ========================================================================== */
 
@@ -10,7 +10,7 @@
 
 /* ------------------------------------------------------------------ Store */
 const Store = {
-  KEY: "whatwhen-state-v1",
+  KEY: "whatwhen-state-v2",
   load() {
     try { return JSON.parse(localStorage.getItem(this.KEY)) || {}; }
     catch { return {}; }
@@ -74,6 +74,21 @@ function groupCourses() {
     .filter((g) => g.items.length > 0);
 }
 
+/* transient toast (limit & notices) */
+function showToast(message) {
+  $(".toast")?.remove();
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.setAttribute("role", "status");
+  el.innerHTML = `${ICONS.alert}<span>${esc(message)}</span>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("is-visible"));
+  setTimeout(() => {
+    el.classList.remove("is-visible");
+    setTimeout(() => el.remove(), 300);
+  }, 3200);
+}
+
 /* ----------------------------------------------------------- SVG helpers */
 const ICONS = {
   calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>',
@@ -86,6 +101,7 @@ const ICONS = {
   grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>',
   list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></svg>',
   download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="6.5 9.5 12 15 17.5 9.5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
 };
 
 /* -------------------------------------------------------------- Chrome */
@@ -114,7 +130,6 @@ function renderChrome() {
       ${esc(t("footerNote"))}
     </p>`;
 
-  /* floating WhatsApp button (single contact point) */
   if (!$("#waFloat")) {
     document.body.insertAdjacentHTML("beforeend",
       `<a class="wa-float" id="waFloat" target="_blank" rel="noopener"
@@ -285,8 +300,6 @@ function goBackToSetup() {
 function renderCourseCard(course, idx) {
   const isSelected = state.selected.includes(idx);
   const isMandatory = course.mandatoryFor.includes(state.dept);
-  const limitFull = state.selected.length >= state.maxCourses;
-  const disabled = !isSelected && limitFull;
   const pick = state.picks[idx] ?? null;
 
   const badges = [];
@@ -301,34 +314,19 @@ function renderCourseCard(course, idx) {
   badges.push(`<span class="badge badge-level">${esc(t("levelPrefix"))} ${course.level}</span>`);
 
   const meta = [
-    course.code
-      ? `<span class="course-code">${esc(course.code)}</span>`
-      : `<span class="course-code course-code-missing">${esc(t("noCode"))}</span>`,
+    course.code ? `<span class="course-code">${esc(course.code)}</span>` : "",
     ...badges,
   ].join("");
 
   const counts = `
     <span class="course-count">${course.lectures.length} ${esc(t("lecturesCount"))}</span>
-    <span class="course-count">${course.sections.length} ${esc(t("sectionsCount"))}</span>`;
-
-  const pickRow = isSelected && course.sections.length ? `
-    <div class="pick-row">
-      <label class="pick-label">${esc(t("pickSection"))}</label>
-      <select class="section-select" data-idx="${idx}">
-        <option value="" ${pick == null ? "selected" : ""} disabled>${esc(t("pickSectionPh"))}</option>
-        ${course.sections.map((s, i) =>
-          `<option value="${i}" ${pick === i ? "selected" : ""}>${esc(Timetable.sectionLabel(s))}</option>`
-        ).join("")}
-      </select>
-    </div>` : "";
-
-  const noLecNote = isSelected && !course.lectures.length ? `
-    <p class="no-lec-note">${ICONS.alert}<span>${esc(t("noLectureWarning"))}</span></p>` : "";
+    <span class="course-count">${course.sections.length} ${esc(t("sectionsCount"))}</span>
+    ${isSelected && pick != null ? `<span class="course-count course-count--picked">${ICONS.check}${esc(Timetable.sectionLabel(course.sections[pick]))}</span>` : ""}`;
 
   return `
-  <div class="course-card ${isSelected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}">
+  <div class="course-card ${isSelected ? "is-selected" : ""}">
     <label class="course-check-row">
-      <input type="checkbox" class="course-check" data-idx="${idx}" ${isSelected ? "checked" : ""} ${disabled ? "disabled" : ""}>
+      <input type="checkbox" class="course-check" data-idx="${idx}" ${isSelected ? "checked" : ""}>
       <div class="course-body">
         <div class="course-top">
           <span class="course-name">${esc(course.name)}</span>
@@ -337,8 +335,6 @@ function renderCourseCard(course, idx) {
         <div class="course-meta">${meta}</div>
       </div>
     </label>
-    ${pickRow}
-    ${noLecNote}
   </div>`;
 }
 
@@ -364,6 +360,50 @@ function renderGroup(dept, items, asList) {
   </section>`;
 }
 
+/* --------------------------------------------- Registered courses list */
+function renderRegisteredList(model) {
+  const conflicted = new Set();
+  model.conflicts.forEach((c) => c.items.forEach((p) => conflicted.add(p.courseIdx)));
+
+  const items = state.selected.map((idx) => {
+    const course = COURSES[idx];
+    const pick = state.picks[idx] ?? null;
+    const clash = conflicted.has(idx);
+    const mand = course.mandatoryFor.includes(state.dept);
+
+    return `
+    <div class="reg-item ${clash ? "reg-item--clash" : ""}">
+      <div class="reg-info">
+        ${clash ? `<span class="reg-clashicon" title="${esc(t("conflictSection"))}">${ICONS.alert}</span>` : ""}
+        <span class="reg-name">
+          ${course.code ? `<strong class="course-code">${esc(course.code)}</strong>` : ""}
+          ${esc(course.name)}
+        </span>
+        <span class="badge ${mand ? "badge-mandatory" : "badge-optional"}">${esc(mand ? t("mandatoryShort") : t("optionalShort"))}</span>
+      </div>
+      <div class="reg-actions">
+        <select class="section-select" data-idx="${idx}">
+          <option value="" ${pick == null ? "selected" : ""} disabled>${esc(t("pickSectionPh"))}</option>
+          ${course.sections.map((s, i) =>
+            `<option value="${i}" ${pick === i ? "selected" : ""}>${esc(Timetable.sectionLabel(s))}</option>`
+          ).join("")}
+        </select>
+        <button class="icon-btn reg-remove" data-idx="${idx}" type="button"
+                title="${esc(t("removeCourse"))}" aria-label="${esc(t("removeCourse"))}">${ICONS.x}</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  return `
+  <section class="registered-panel" id="registered">
+    <h2 class="registered-title">${esc(t("registeredTitle"))}</h2>
+    <p class="registered-subtitle">${esc(t("registeredSubtitle"))}</p>
+    ${state.selected.length
+      ? `<div class="reg-list">${items}</div>`
+      : `<p class="registered-empty">${esc(t("registeredEmpty"))}</p>`}
+  </section>`;
+}
+
 /* ------------------------------------------------------ Timetable panel */
 function renderGridCell(day, slot, model) {
   const items = model.cells[`${day.key}:${slot.n}`] || [];
@@ -372,10 +412,9 @@ function renderGridCell(day, slot, model) {
     : items.some((p) => p.conflict) ? "tt-cell--section" : "";
 
   const body = items.map((p) => {
-    const code = p.course.code || t("noCode");
     const title = (p.first || p.kind === "section")
-      ? `<strong class="tt-code">${esc(code)}</strong><span class="tt-cname">${esc(p.course.name)}</span>`
-      : `<strong class="tt-code">${esc(code)}</strong><span class="tt-cont">${esc(t("continuation"))}</span>`;
+      ? `<strong class="tt-code">${esc(p.course.code || "")}</strong><span class="tt-cname">${esc(p.course.name)}</span>`
+      : `<strong class="tt-code">${esc(p.course.code || "")}</strong><span class="tt-cont">${esc(t("continuation"))}</span>`;
     return `
     <div class="tt-item tt-item--${p.kind} ${p.conflict ? "tt-item--clash-" + p.conflict : ""}">
       <div class="tt-item-top">
@@ -399,11 +438,10 @@ function renderConflict(c) {
 
   const items = c.items.map((p) => {
     const mand = p.course.mandatoryFor.includes(state.dept);
-    const code = p.course.code || t("noCode");
     return `
     <li>
       <span class="warn-kind warn-kind--${p.kind}">${p.kind === "lecture" ? esc(t("lectureWord")) : esc(t("sectionWord"))}</span>
-      <strong>${esc(code)}</strong> ${esc(p.course.name)} · ${esc(p.place)}
+      <strong>${esc(p.course.code || "")}</strong> ${esc(p.course.name)} · ${esc(p.place)}
       ${p.doctor ? " · " + esc(p.doctor) : ""}${p.labels ? " · " + esc(p.labels.join("/")) : ""}
       <span class="badge ${mand ? "badge-mandatory" : "badge-optional"}">${esc(mand ? t("mandatoryShort") : t("optionalShort"))}</span>
     </li>`;
@@ -430,6 +468,7 @@ function renderTimetablePanel(model) {
   const pending = state.selected.filter((i) => state.picks[i] == null).length;
   const hasConflicts = model.conflicts.length > 0;
 
+  /* transposed grid: days = rows, Slot 1..7 = columns (both times on top) */
   return `
   <section class="timetable-panel" id="timetable">
     <div class="tt-head">
@@ -463,18 +502,19 @@ function renderTimetablePanel(model) {
       <table class="tt-table">
         <thead>
           <tr>
-            <th class="tt-corner">${esc(t("slotWord"))}</th>
-            ${DAYS.map((d) => `<th class="tt-day">${esc(tr(d))}</th>`).join("")}
+            <th class="tt-corner">${esc(t("dayWord"))}</th>
+            ${SLOTS.map((sl) => `
+            <th class="tt-slothead">
+              <span class="tt-slot-n">${esc(t("slotWord"))} ${sl.n}</span>
+              <span class="tt-slot-t">${esc(sl.short)}<br>${esc(sl.long)}</span>
+            </th>`).join("")}
           </tr>
         </thead>
         <tbody>
-          ${SLOTS.map((sl) => `
+          ${DAYS.map((d) => `
           <tr>
-            <th class="tt-slot">
-              <span class="tt-slot-n">${esc(t("slotWord"))} ${sl.n}</span>
-              <span class="tt-slot-t">${esc(sl.short)}<br>${esc(sl.long)}</span>
-            </th>
-            ${DAYS.map((d) => renderGridCell(d, sl, model)).join("")}
+            <th class="tt-dayrow">${esc(tr(d))}</th>
+            ${SLOTS.map((sl) => renderGridCell(d, sl, model)).join("")}
           </tr>`).join("")}
         </tbody>
       </table>
@@ -518,34 +558,27 @@ function renderPlanner() {
       </div>
       <div class="summary-nav">
         <button class="btn btn-ghost btn-small" data-goto="#catalog" type="button">${ICONS.book}<span>${esc(t("navCourses"))}</span></button>
+        <button class="btn btn-ghost btn-small" data-goto="#registered" type="button">${ICONS.check}<span>${esc(t("navRegistered"))}</span></button>
         <button class="btn btn-ghost btn-small" data-goto="#timetable" type="button">${ICONS.calendar}<span>${esc(t("navTimetable"))}</span></button>
       </div>
       <button class="btn btn-ghost btn-small" id="editInfoBtn" type="button">${esc(t("editInfo"))}</button>
     </div>
 
-    <p class="limit-warning" id="limitWarning" ${state.selected.length >= state.maxCourses ? "" : "hidden"}>
-      ${ICONS.alert}<span>${esc(t("limitReached"))}</span>
-    </p>
-
-    <div class="planner-layout">
-      <div class="catalog-col" id="catalog">
-        <header class="catalog-header">
-          <h1 class="card-title">${esc(t("catalogTitle"))}</h1>
-          <p class="card-subtitle">${esc(t("catalogSubtitle"))}</p>
-          <div class="view-toggle" role="group" aria-label="catalog view">
-            <button type="button" data-view="grid" class="view-btn ${!asList ? "is-active" : ""}">${ICONS.grid}<span>${esc(t("viewGrid"))}</span></button>
-            <button type="button" data-view="list" class="view-btn ${asList ? "is-active" : ""}">${ICONS.list}<span>${esc(t("viewList"))}</span></button>
-          </div>
-        </header>
-        ${groupHtml}
-      </div>
-
-      <div class="tt-col">
-        <div class="tt-sticky">
-          ${renderTimetablePanel(model)}
+    <div class="catalog-col" id="catalog">
+      <header class="catalog-header">
+        <h1 class="card-title">${esc(t("catalogTitle"))}</h1>
+        <p class="card-subtitle">${esc(t("catalogSubtitle"))}</p>
+        <div class="view-toggle" role="group" aria-label="catalog view">
+          <button type="button" data-view="grid" class="view-btn ${!asList ? "is-active" : ""}">${ICONS.grid}<span>${esc(t("viewGrid"))}</span></button>
+          <button type="button" data-view="list" class="view-btn ${asList ? "is-active" : ""}">${ICONS.list}<span>${esc(t("viewList"))}</span></button>
         </div>
-      </div>
+      </header>
+      ${groupHtml}
     </div>
+
+    ${renderRegisteredList(model)}
+
+    ${renderTimetablePanel(model)}
   </div>`;
 }
 
@@ -568,6 +601,13 @@ function bindPlanner() {
     box.addEventListener("change", () => {
       const idx = Number(box.dataset.idx);
       if (box.checked) {
+        if (state.selected.length >= state.maxCourses) {
+          box.checked = false;
+          showToast(t("limitReached"));
+          box.closest(".course-card")?.classList.add("shake");
+          setTimeout(() => box.closest(".course-card")?.classList.remove("shake"), 400);
+          return;
+        }
         if (!state.selected.includes(idx)) state.selected.push(idx);
       } else {
         state.selected = state.selected.filter((i) => i !== idx);
@@ -584,6 +624,17 @@ function bindPlanner() {
       const idx = Number(sel.dataset.idx);
       if (sel.value === "") delete state.picks[idx];
       else state.picks[idx] = Number(sel.value);
+      persist();
+      renderAll();
+    });
+  });
+
+  $$(".reg-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.idx);
+      state.selected = state.selected.filter((i) => i !== idx);
+      delete state.picks[idx];
+      computeLimit();
       persist();
       renderAll();
     });

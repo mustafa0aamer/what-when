@@ -11,23 +11,20 @@
  *   - section: { label: ['S1','S2'], day, slot, place }
  *
  * TRANSCRIPTION NOTES (verify against the official PDF):
- *   [?] Learning From Data labs — page 4 of the schedule PDF has a scrambled
- *       two-column layout; lab slots were inferred. Please verify.
- *   [?] Wireless & Mobile Networks labs (Mon 4/5/6) — the PDF repeats
- *       "S3,S4" in two cells; inferred as S1,S2 / S3,S4 / S5,S6.
- *   [?] Image Processing lab "S5" appears in two consecutive cells.
- *   [?] Brain-Computer Interfacing labs — flattened text is ambiguous.
- *   [?] 4th-level AI lectures: GAN (Sat 5-6) and Unsupervised Learning
- *       (Sat 5-6) overlap in the source PDF — kept as-is, the tool will
- *       flag this conflict automatically.
- *   - Course codes not present in the bylaws excerpt are set to `null`
- *     (code + mandatory flags easily added later).
+ *   - Course codes verified against the official course-codes document are
+ *     filled in; AI-department courses stay code-less this version (shows
+ *     nothing anywhere).
+ *   - The previously [?]-flagged entries (Learning From Data labs, Wireless
+ *     labs, Image Processing S5, BCI labs, GAN/Unsupervised overlap) are kept
+ *     EXACTLY as printed in the official schedule — duplicated section labels
+ *     appear as multiple pickable options, and any genuine overlap is flagged
+ *     by the tool automatically.
  *   - "Operating Systems" is listed as CS342 (Advanced Operating Systems)
  *     in the bylaws; names differ slightly between documents.
  * ========================================================================== */
 
 const APP_CONFIG = {
-  toolName: { ar: "إيه امتا", en: "What When" },
+  toolName: { ar: "هجدول", en: "What When" },
   academicTerm: { ar: "الفصل الدراسي الأول 2026–2027", en: "First Term 2026–2027" },
 
   whatsapp: {
@@ -157,8 +154,8 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Algorithms Analysis and Design",
-    dept: "GEN", level: 3, creditHours: 3, mandatoryFor: [],
+    code: "CS321", name: "Algorithms Analysis and Design",
+    dept: "CS", level: 3, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "mon", slots: [4, 5], place: "Farag Hall", doctor: "Dr. Basher Youssef" } ],
     sections: [
       { label: ["S1", "S2"], day: "sat", slot: 1, place: "Lab 5" },
@@ -224,7 +221,7 @@ const COURSES = [
   {
     code: "IT313", name: "Computer Architecture",
     dept: "IT", level: 3, creditHours: 3, mandatoryFor: ["IT"],
-    lectures: [],
+    lectures: [ { day: "thu", slots: [5, 6], place: "Exam Room 408", doctor: "Prof. Neveen Aboel-Hadid" } ],
     sections: [
       { label: ["S1", "S2"], day: "sun", slot: 3, place: "Lab 3" },
       { label: ["S5", "S6"], day: "sun", slot: 4, place: "Lab 6" },
@@ -359,7 +356,7 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Soft Computing",
+    code: "CS465", name: "Soft Computing",
     dept: "CS", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "sun", slots: [5, 6], place: "Exam Room 411", doctor: "Dr. Sabah El-Sayed" } ],
     sections: [
@@ -380,7 +377,7 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Selected Topics in Computer Science-1",
+    code: "CS495", name: "Selected Topics in Computer Science-1",
     dept: "CS", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "thu", slots: [3, 4], place: "Exam Room 404", doctor: "Dr. Mohamed Abdel-Wahab" } ],
     sections: [
@@ -410,7 +407,7 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Wireless and Mobile Networks",
+    code: "IT424", name: "Wireless and Mobile Networks",
     dept: "IT", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "thu", slots: [3, 4], place: "Exam Room 409", doctor: "Prof. Imane Saroit & Prof. Amira Kotb" } ],
     sections: [
@@ -420,7 +417,7 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Robotics",
+    code: "IT416", name: "Robotics",
     dept: "IT", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "tue", slots: [1, 2], place: "Exam Room 410", doctor: "Prof. Reda Abdel-Wahab" } ],
     sections: [
@@ -438,7 +435,7 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Information Systems Development Methodologies",
+    code: "IS437", name: "Information Systems Development Methodologies",
     dept: "IS", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "sat", slots: [3, 4], place: "Exam Room 411", doctor: "Dr. Hatem El-Kady" } ],
     sections: [
@@ -462,7 +459,7 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Geographical Information Systems",
+    code: "IS442", name: "Geographical Information Systems",
     dept: "IS", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "tue", slots: [4, 5], place: "Exam Room 409", doctor: "Prof. Mohamed Nour El-Din" } ],
     sections: [
@@ -473,7 +470,7 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Selected Topics in Database",
+    code: "IS417", name: "Selected Topics in Database",
     dept: "IS", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "wed", slots: [3, 4], place: "Exam Room 411", doctor: "Dr. Wafaa Momen" } ],
     sections: [
@@ -482,7 +479,7 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Project Management",
+    code: "DS456", name: "Project Management",
     dept: "DS", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "sun", slots: [1, 2], place: "Exam Room 408", doctor: "Dr. Doaa Saleh" } ],
     sections: [
@@ -493,9 +490,9 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Data Analytics",
+    code: "DS342", name: "Data Analytics",
     dept: "DS", level: 4, creditHours: 3, mandatoryFor: [],
-    lectures: [],
+    lectures: [ { day: "thu", slots: [1, 2], place: "Exam Room 410", doctor: "Dr. Sally Kasem & Dr. Marwa Mostafa" } ],
     sections: [
       { label: ["S1", "S2", "S3", "S4"],           day: "sun", slot: 3, place: "Exam Room 408" },
       { label: ["S5", "S6", "S7", "S8"],           day: "sun", slot: 4, place: "Exam Room 408" },
@@ -504,9 +501,9 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Forecasting and Predictive Analytics",
+    code: "DS344", name: "Forecasting and Predictive Analytics",
     dept: "DS", level: 4, creditHours: 3, mandatoryFor: [],
-    lectures: [],
+    lectures: [ { day: "thu", slots: [3, 4], place: "Exam Room 410", doctor: "Dr. Olivia Mourad" } ],
     sections: [
       { label: ["S1", "S2", "S3", "S4", "S5"], day: "sun", slot: 3, place: "Exam Room 409" },
     ],
