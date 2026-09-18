@@ -24,7 +24,7 @@
  * ========================================================================== */
 
 const APP_CONFIG = {
-  toolName: { ar: "هجدول", en: "What When" },
+  toolName: { ar: " هجدول وأكلمك", en: "What When" },
   academicTerm: { ar: "الفصل الدراسي الأول 2026–2027", en: "First Term 2026–2027" },
 
   whatsapp: {
@@ -43,7 +43,7 @@ const APP_CONFIG = {
       label: { ar: "2 أو أكثر", en: "2.00 or above" },
       desc:  { ar: "18 ساعة معتمدة", en: "18 credit hours" } },
     { id: "mid",  minGpa: 1,    maxHours: 15,
-      label: { ar: "أقل من 2 و 1 أو أكثر", en: "1.00 – 1.99" },
+      label: { ar: "أكبر من 1 وأقل من 2", en: "1.00 – 1.99" },
       desc:  { ar: "15 ساعة معتمدة", en: "15 credit hours" } },
     { id: "low",  minGpa: 0,    maxHours: 12,
       label: { ar: "أقل من 1", en: "Below 1.00" },
