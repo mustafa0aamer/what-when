@@ -1,0 +1,8 @@
+{
+  "name": "إيه امتا | What When",
+  "description": "An unofficial study-schedule planning tool for the Faculty of Computers & AI (Cairo University) featuring timetable grid, section picking, credit-hours limit calculation, and conflict detection.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

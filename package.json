@@ -1,0 +1,16 @@
+{
+  "name": "what-when",
+  "version": "1.0.0",
+  "private": true,
+  "description": "What When | إيه امتا — Faculty of Computers & AI Study Schedule Planner",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "node -e 'console.log(\"Build succeeded\")'",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
