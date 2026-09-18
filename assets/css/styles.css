@@ -634,17 +634,32 @@ select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent
   bottom: 1.25rem;
   inset-inline-end: 1.25rem;
   z-index: 90;
-  width: 54px; height: 54px;
-  display: grid;
-  place-items: center;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
   background: #25d366;
   color: #fff;
-  box-shadow: 0 6px 20px -6px rgba(37, 211, 102, .7);
-  transition: transform .15s;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, .45), 0 2px 6px rgba(0, 0, 0, .1);
+  transition: transform .18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .18s ease;
+  text-decoration: none;
+  cursor: pointer;
 }
-.wa-float:hover { transform: scale(1.06); }
-.wa-float svg { width: 28px; height: 28px; display: block; flex: none; }
+.wa-float:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 22px rgba(37, 211, 102, .6), 0 3px 8px rgba(0, 0, 0, .15);
+}
+.wa-float:active {
+  transform: scale(0.96);
+}
+.wa-float svg {
+  width: 30px;
+  height: 30px;
+  display: block;
+  flex: none;
+}
 
 /* ----------------------------------------------------------- Responsive */
 @media (max-width: 1080px) {
@@ -657,6 +672,7 @@ select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent
   .timetable-panel { padding: .8rem; }
   .tt-table { min-width: 780px; }
   .wa-float { width: 48px; height: 48px; bottom: 1rem; inset-inline-end: 1rem; }
+  .wa-float svg { width: 26px; height: 26px; }
 }
 
 /* ===================== PHASE 3: registered list, toast, picked chip ===== */

@@ -92,7 +92,7 @@ function showToast(message) {
 /* ----------------------------------------------------------- SVG helpers */
 const ICONS = {
   calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>',
-  whatsapp: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2a9.9 9.9 0 0 0-8.5 14.96L2 22l5.2-1.5A9.9 9.9 0 1 0 12.04 2Zm0 1.8a8.1 8.1 0 1 1-4.13 15.07l-.3-.18-3.06.88.9-2.98-.2-.31A8.1 8.1 0 0 1 12.04 3.8Zm-3.1 4.03c-.18 0-.47.07-.72.34-.24.27-.94.92-.94 2.24 0 1.32.96 2.6 1.1 2.78.13.18 1.88 3 4.65 4.08 2.3.9 2.77.72 3.27.68.5-.05 1.6-.65 1.83-1.28.22-.63.22-1.17.15-1.28-.06-.11-.24-.18-.5-.31-.27-.14-1.6-.79-1.85-.88-.25-.09-.43-.13-.61.14-.18.27-.7.88-.86 1.06-.16.18-.32.2-.59.07a7.4 7.4 0 0 1-2.18-1.35 8.2 8.2 0 0 1-1.51-1.88c-.16-.27-.02-.42.12-.55.12-.12.27-.32.4-.48.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.48-.07-.13-.6-1.46-.83-2-.2-.47-.4-.41-.56-.42l-.6-.03Z"/></svg>',
+  whatsapp: '<svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.964 9.964 0 0 0 1.333 4.993L2 22l5.233-1.371a9.994 9.994 0 0 0 4.779 1.217h.004c5.505 0 9.99-4.478 9.99-9.984 0-2.669-1.038-5.176-2.925-7.062A9.935 9.935 0 0 0 12.012 2zm5.834 14.128c-.242.679-1.4 1.29-1.954 1.37-.5.082-1.144.114-1.843-.11-.424-.136-.973-.314-1.66-.612-2.922-1.264-4.81-4.2-4.956-4.396-.145-.196-1.182-1.572-1.182-2.997 0-1.426.747-2.127 1.012-2.417.266-.29.58-.363.774-.363.193 0 .387.002.556.01.179.01.416-.068.65.493.242.58.822 2.006.894 2.152.073.145.121.315.024.508-.097.193-.145.314-.29.483-.145.17-.306.38-.436.508-.145.145-.298.306-.129.596.17.29.754 1.242 1.618 2.012 1.112.992 2.047 1.3 2.345 1.445.298.145.472.121.645-.073.174-.193.742-.862.943-1.152.202-.29.395-.242.66-.145.267.097 1.693.798 1.983.943.29.145.484.218.556.339.073.12.073.693-.169 1.372z"/></svg>',
   globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18Z"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13Z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-2.5"/></svg>',
   alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3Z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r="0.4" fill="currentColor"/></svg>',
@@ -130,12 +130,18 @@ function renderChrome() {
       ${esc(t("footerNote"))}
     </p>`;
 
-  if (!$("#waFloat")) {
+  let wa = $("#waFloat");
+  if (!wa) {
     document.body.insertAdjacentHTML("beforeend",
       `<a class="wa-float" id="waFloat" target="_blank" rel="noopener"
           title="${esc(t("whatsappAria"))}" aria-label="${esc(t("whatsappAria"))}">${ICONS.whatsapp}</a>`);
+    wa = $("#waFloat");
+  } else {
+    wa.innerHTML = ICONS.whatsapp;
+    wa.setAttribute("title", t("whatsappAria"));
+    wa.setAttribute("aria-label", t("whatsappAria"));
   }
-  $("#waFloat").href = APP_CONFIG.whatsapp.link;
+  wa.href = APP_CONFIG.whatsapp.link;
 
   $("#langToggle").addEventListener("click", () => {
     state.lang = state.lang === "ar" ? "en" : "ar";
