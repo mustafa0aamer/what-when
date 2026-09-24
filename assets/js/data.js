@@ -508,10 +508,10 @@ const COURSES = [
     lectures: [ { day: "tue", slots: [1, 2], place: "Exam Room 409", doctor: "Dr. Ehab Ezzat & Dr. Samar Taha" } ],
     sections: [
       { label: ["S5", "S6"], day: "sun", slot: 1, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S3", "S4"], day: "sun", slot: 3, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S1", "S2"], day: "sun", slot: 5, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S7"],       day: "wed", slot: 6, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S1", "S2"], day: "wed", slot: 7, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S3", "S4"], day: "sun", slot: 4, place: "Ben-ElSarayat Lab 35" },
+      { 
+      { label: ["S7","S8"],       day: "wed", slot: 5, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S1", "S2"], day: "wed", slot: 6, place: "Ben-ElSarayat Lab 35" },
     ],
   },
   {
