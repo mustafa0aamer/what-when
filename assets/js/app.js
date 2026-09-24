@@ -112,17 +112,25 @@ function renderChrome() {
 
   $("#appHeader").innerHTML = `
     <div class="header-inner">
-      <div class="brand">
+      <a href="#" class="brand" id="brandLink" title="${esc(t("brandHome"))}" aria-label="${esc(tr(APP_CONFIG.toolName))} - ${esc(t("brandHome"))}">
         <span class="brand-icon">${ICONS.calendar}</span>
         <div class="brand-text">
           <strong>${esc(tr(APP_CONFIG.toolName))}</strong>
           <small>${esc(tr(APP_CONFIG.academicTerm))}</small>
         </div>
-      </div>
+      </a>
       <div class="header-actions">
         <button class="icon-btn" id="langToggle" type="button">${esc(t("langToggle"))}</button>
       </div>
     </div>`;
+
+  const brandLink = $("#brandLink");
+  if (brandLink) {
+    brandLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      goBackToSetup();
+    });
+  }
 
   $("#appFooter").innerHTML = `
     <p class="footer-note">

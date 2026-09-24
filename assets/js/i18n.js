@@ -80,6 +80,7 @@ const STRINGS = {
 
     footerNote: "أداة تخطيط غير رسمية — يجب مراجعة الجداول الرسمية المعتمدة من الكلية قبل التسجيل",
     whatsappAria: "تواصل مع المطور عبر واتساب",
+    brandHome: "الصفحة الرئيسية",
     langToggle: "English",
   },
 
@@ -159,6 +160,7 @@ const STRINGS = {
 
     footerNote: "An unofficial planning tool — always verify with the official faculty schedules before registering",
     whatsappAria: "Contact the developer on WhatsApp",
+    brandHome: "Home page",
     langToggle: "العربية",
   },
 };
