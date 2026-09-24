@@ -1,8 +1,10 @@
 /* ============================================================================
- * What When / إيه امتا — DATA CONFIGURATION
+ * What When / هجدول وأكلمك — DATA CONFIGURATION
  * ----------------------------------------------------------------------------
  * This file is the single source of truth for the tool.
  * Edit values here (or later via the admin page, Phase 3) to update the app.
+ *
+ * Schedule source: "FCAI Timetable 2026-2027 (First Semester) — Publish V3"
  *
  * Data conventions:
  *   - days:    'sat' | 'sun' | 'mon' | 'tue' | 'wed' | 'thu'
@@ -10,17 +12,42 @@
  *   - lecture: { day, slots: [start, end], place, doctor }
  *   - section: { label: ['S1','S2'], day, slot, place }
  *
- * TRANSCRIPTION NOTES (verify against the official PDF):
- *   - Course codes verified against the official course-codes document are
- *     filled in; AI-department courses stay code-less this version (shows
- *     nothing anywhere).
- *   - The previously [?]-flagged entries (Learning From Data labs, Wireless
- *     labs, Image Processing S5, BCI labs, GAN/Unsupervised overlap) are kept
- *     EXACTLY as printed in the official schedule — duplicated section labels
- *     appear as multiple pickable options, and any genuine overlap is flagged
- *     by the tool automatically.
- *   - "Operating Systems" is listed as CS342 (Advanced Operating Systems)
- *     in the bylaws; names differ slightly between documents.
+ * V3 CHANGE LOG (vs the previous data file):
+ *   - CS352 ASE: new lab Sat S2 (S1,S2 · Lab 7).
+ *   - CS321 Algorithms: several labs moved/corrected — IS Sat S6 is now
+ *     (S5,S6 · Ben-ElSarayat 32) [was S9]; new DS labs (S5,S6 Tue S4 Lab 3);
+ *     the IT Tue S1 (S3,S4) slot is now an IT&DC lab; AI Sun lab is S4 (not S3);
+ *     Mon labs corrected to slot 6. See course block for the full list.
+ *   - IT351 IT&DC: new lab Tue S1 (S3,S4 · Lab 8) [IT page]; the old
+ *     Sat S1 (S1,S2 · Lab 3) entry no longer appears in V3 and was removed.
+ *   - IT313 Computer Architecture: new lab Sun S5 (S3,S4 · Lab 8).
+ *   - IT352 Pattern Recognition: new lab Tue S4 (S1,S2 · Lab 5).
+ *   - IS321 File Management: Sat S1 is now (S5,S6); labs regrouped —
+ *     (S7,S8 Sun S5 Lab 5), (S3,S4 Mon S6 Lab 3); old Sun S6 entry removed.
+ *   - IS312 DBMS: new lab Sun S5 (S1,S2 · Lab 7); old Mon S5 entry removed.
+ *   - DS341 Learning From Data: full lab list confirmed by V3 — five labs.
+ *   - DS331 SysMod: Sun S2 lab moved to Lab 8.
+ *   - DS312 Decision Support: LECTURE MOVED to Mon S3–S4 (was Wed S5–S6);
+ *     labs: (S5,S6 Sun S3 Lab 6) [was Mon S4 Lab 5]; Wed labs confirmed.
+ *   - CS423 Compilers: LECTURE MOVED to Tue S1–S2 (was Sun S3–S4).
+ *   - CS465 Soft Computing: LECTURE MOVED to Tue S4–S5 (was Sun S5–S6).
+ *   - IT443 Image Processing: labs confirmed — S1,S2 / S3,S4 / S5,S6 at
+ *     Mon S4 / S5 / S6 (the old duplicate "S5" ambiguity is resolved).
+ *   - IT424 Wireless: labs confirmed — S1,S2 / S3,S4 / S5,S6 at Mon S4/S5/S6.
+ *   - IT416 Robotics: lab moved to Mon S1 (S1,S2 · Lab 3) [was Wed S3].
+ *   - IS417 Selected Topics in Database: new lab Sat S6 (S1,S2 · Library Lab);
+ *     old Tue S5 lab no longer appears in V3 and was removed.
+ *   - DS425 Network Modeling: (S1,S2) lab moved to Wed S4 · Library Lab.
+ *   - Intro to Logic doctor: Dr. Samar Taha (was Dr. Nermeen).
+ *   - Brain-Computer Interfacing doctors: Prof. Eid Emary & Dr. Mahmoud Eid;
+ *     labs confirmed — (S1,S2 Tue S1 Ben 32) / (S3,S4 Tue S2 Ben 35).
+ *   - 4th-level AI Saturday lectures no longer overlap (GAN S1–2 / IAR S3–4 /
+ *     Unsupervised S5–6) — the old auto-conflict disappears.
+ *
+ * REMAINING AMBIGUITY (verify against the official PDF):
+ *   - IS page Wed S1: "Advanced Software Engineering (Lab) (Lab 7)" — the
+ *     section labels are missing in the flattened PDF text; kept as (S5,S6)
+ *     as in the previous version. Fix the label array in this file if wrong.
  * ========================================================================== */
 
 const APP_CONFIG = {
@@ -73,7 +100,7 @@ const APP_CONFIG = {
 
 /* ---------------------------------------------------------------------------
  * Days & time slots — numbered 1..7, both durations as printed in the official
- * schedule (lecture-length / lab-length variants).
+ * schedule (lecture-length / lab-length variants). Unchanged in V3.
  * ------------------------------------------------------------------------- */
 const DAYS = [
   { key: "sat", ar: "السبت",   en: "Saturday" },
@@ -99,7 +126,7 @@ const SLOTS = [
 const FACULTY_ACTIVITY = { day: "tue", slot: 3,
   label: { ar: "نشاط كلية", en: "Faculty Activity" } };
 
-  
+
 const DEPT_NAMES = {
   CS:  { ar: "علوم الحاسب",                    en: "Computer Science" },
   IT:  { ar: "تكنولوجيا المعلومات",            en: "Information Technology" },
@@ -110,7 +137,7 @@ const DEPT_NAMES = {
 };
 
 /* ---------------------------------------------------------------------------
- * COURSES — every course appearing in the official schedule PDF.
+ * COURSES — every course appearing in the official schedule PDF (V3).
  * mandatoryFor: departments for which the bylaws list this course as
  *               compulsory. Empty array = optional for everyone (so far).
  * dept: owning department (by course code prefix, or schedule page when the
@@ -134,9 +161,11 @@ const COURSES = [
     dept: "IT", level: 3, creditHours: 3, mandatoryFor: ["CS", "IT"],
     lectures: [ { day: "sat", slots: [3, 4], place: "Farag Hall", doctor: "Dr. Asmaa Ahmed" } ],
     sections: [
-      { label: ["S1", "S2"],  day: "sat", slot: 1, place: "Lab 3" },
       { label: ["S5", "S6"],  day: "sat", slot: 1, place: "Lab 3" },
       { label: ["S3", "S4"],  day: "sat", slot: 2, place: "Library Lab" },
+      { label: ["S1", "S2"],  day: "sat", slot: 5, place: "Lab 5" },
+      { label: ["S5", "S6"],  day: "sat", slot: 6, place: "Lab 5" },
+      { label: ["S3", "S4"],  day: "tue", slot: 1, place: "Lab 8" },
       { label: ["S3", "S4"],  day: "tue", slot: 4, place: "Library Lab" },
       { label: ["S7", "S8"],  day: "wed", slot: 3, place: "Lab 6" },
       { label: ["S9", "S10"], day: "wed", slot: 4, place: "Lab 3" },
@@ -162,20 +191,30 @@ const COURSES = [
     dept: "CS", level: 3, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "mon", slots: [4, 5], place: "Farag Hall", doctor: "Dr. Basher Youssef" } ],
     sections: [
+      /* CS page */
       { label: ["S1", "S2"], day: "sat", slot: 1, place: "Lab 5" },
-      { label: ["S3", "S4"], day: "mon", slot: 5, place: "Lab 5" },
+      { label: ["S3", "S4"], day: "mon", slot: 6, place: "Lab 5" },
       { label: ["S5", "S6"], day: "tue", slot: 1, place: "Lab 7" },
       { label: ["S7", "S8"], day: "tue", slot: 4, place: "Lab 7" },
+      { label: ["S7", "S8"], day: "wed", slot: 3, place: "Lab 8" },
+      { label: ["S5", "S6"], day: "wed", slot: 4, place: "Lab 6" },
+      /* IT page */
       { label: ["S1", "S2"], day: "sun", slot: 3, place: "Lab 8" },
+      { label: ["S3", "S4"], day: "sun", slot: 5, place: "Lab 6" },
       { label: ["S5", "S6"], day: "sun", slot: 6, place: "Lab 8" },
-      { label: ["S3", "S4"], day: "tue", slot: 1, place: "Lab 8" },
-      { label: ["S3", "S4"], day: "sat", slot: 5, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S9"],       day: "sat", slot: 6, place: "Ben-ElSarayat Lab 32" },
+      /* IS page */
       { label: ["S1", "S2"], day: "sun", slot: 1, place: "Library Lab" },
-      { label: ["S7", "S8"], day: "mon", slot: 5, place: "Library Lab" },
+      { label: ["S3", "S4"], day: "sat", slot: 5, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S5", "S6"], day: "sat", slot: 6, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S7", "S8"], day: "mon", slot: 6, place: "Library Lab" },
+      /* DS page */
+      { label: ["S1", "S2"], day: "sat", slot: 5, place: "Lab 6" },
+      { label: ["S3", "S4"], day: "sat", slot: 6, place: "Lab 6" },
+      { label: ["S5", "S6"], day: "tue", slot: 4, place: "Lab 3" },
+      /* AI page */
+      { label: ["S5", "S6"], day: "sun", slot: 4, place: "Lab 5" },
       { label: ["S3", "S4"], day: "mon", slot: 1, place: "Lab 5" },
       { label: ["S1", "S2"], day: "mon", slot: 2, place: "Lab 5" },
-      { label: ["S5", "S6"], day: "sun", slot: 3, place: "Lab 5" },
     ],
   },
   {
@@ -183,17 +222,24 @@ const COURSES = [
     dept: "CS", level: 3, creditHours: 3, mandatoryFor: ["CS"],
     lectures: [ { day: "tue", slots: [5, 6], place: "Farag Hall", doctor: "Prof. Khaled Tawfik" } ],
     sections: [
+      /* CS page */
       { label: ["S5", "S6"], day: "tue", slot: 1, place: "Lab 6" },
       { label: ["S3", "S4"], day: "tue", slot: 1, place: "Lab 5" },
       { label: ["S1", "S2"], day: "tue", slot: 2, place: "Lab 5" },
       { label: ["S7", "S8"], day: "tue", slot: 2, place: "Lab 3" },
+      /* IT page */
       { label: ["S1", "S2"], day: "sat", slot: 6, place: "Lab 8" },
       { label: ["S3", "S4"], day: "tue", slot: 1, place: "Library Lab" },
       { label: ["S5", "S6"], day: "tue", slot: 2, place: "Library Lab" },
+      /* IS page */
       { label: ["S7", "S8"], day: "tue", slot: 1, place: "Lab 3" },
       { label: ["S1", "S2"], day: "tue", slot: 2, place: "Lab 6" },
       { label: ["S5", "S6"], day: "wed", slot: 3, place: "Library Lab" },
       { label: ["S3", "S4"], day: "wed", slot: 4, place: "Lab 8" },
+      /* DS page */
+      { label: ["S1", "S2"], day: "wed", slot: 1, place: "Lab 8" },
+      { label: ["S3", "S4"], day: "wed", slot: 2, place: "Lab 8" },
+      /* AI page */
       { label: ["S3", "S4"], day: "mon", slot: 1, place: "Lab 5" },
       { label: ["S1", "S2"], day: "thu", slot: 3, place: "Lab 7" },
       { label: ["S5", "S6"], day: "thu", slot: 4, place: "Lab 8" },
@@ -204,13 +250,16 @@ const COURSES = [
     dept: "CS", level: 3, creditHours: 3, mandatoryFor: ["CS", "IS"],
     lectures: [ { day: "wed", slots: [5, 6], place: "Farag Hall", doctor: "Dr. Desoky Abdel-Kawy" } ],
     sections: [
-      { label: ["S5", "S6"], day: "mon", slot: 5, place: "Lab 7" },
+      /* CS page */
+      { label: ["S1", "S2"], day: "sat", slot: 2, place: "Lab 7" },
+      { label: ["S5", "S6"], day: "mon", slot: 6, place: "Lab 7" },
       { label: ["S3", "S4"], day: "wed", slot: 1, place: "Lab 5" },
       { label: ["S7", "S8"], day: "wed", slot: 4, place: "Library Lab" },
+      /* IS page */
       { label: ["S3", "S4"], day: "sun", slot: 1, place: "Lab 3" },
-      { label: ["S7", "S8"], day: "mon", slot: 5, place: "Lab 8" },
+      { label: ["S7", "S8"], day: "mon", slot: 6, place: "Lab 8" },
       { label: ["S1", "S2"], day: "tue", slot: 4, place: "Lab 6" },
-      { label: ["S5", "S6"], day: "wed", slot: 1, place: "Lab 7" },
+      { label: ["S5", "S6"], day: "wed", slot: 1, place: "Lab 7" },  // labels missing in V3 PDF text — verify
     ],
   },
   {
@@ -228,6 +277,7 @@ const COURSES = [
     lectures: [ { day: "thu", slots: [5, 6], place: "Exam Room 408", doctor: "Prof. Neveen Aboel-Hadid" } ],
     sections: [
       { label: ["S1", "S2"], day: "sun", slot: 3, place: "Lab 3" },
+      { label: ["S3", "S4"], day: "sun", slot: 5, place: "Lab 8" },
       { label: ["S5", "S6"], day: "sun", slot: 4, place: "Lab 6" },
       { label: ["S3", "S4"], day: "tue", slot: 4, place: "Lab 5" },
     ],
@@ -238,6 +288,7 @@ const COURSES = [
     lectures: [ { day: "mon", slots: [2, 3], place: "Exam Room 410", doctor: "Prof. Reda Abdel-Wahab & Dr. Mona Soliman" } ],
     sections: [
       { label: ["S1", "S2"], day: "sun", slot: 5, place: "Lab 8" },
+      { label: ["S1", "S2"], day: "tue", slot: 4, place: "Lab 5" },
     ],
   },
   {
@@ -256,9 +307,10 @@ const COURSES = [
     dept: "IS", level: 3, creditHours: 3, mandatoryFor: ["IS"],
     lectures: [ { day: "sun", slots: [2, 3], place: "Hall 8", doctor: "Dr. Ayman El-Kilany & Dr. Wafaa Momen" } ],
     sections: [
-      { label: ["S7", "S8"], day: "sat", slot: 1, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S5", "S6"], day: "sat", slot: 1, place: "Ben-ElSarayat Lab 35" },
       { label: ["S1", "S2"], day: "sat", slot: 2, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S3", "S4"], day: "sun", slot: 6, place: "Lab 7" },
+      { label: ["S7", "S8"], day: "sun", slot: 5, place: "Lab 5" },
+      { label: ["S3", "S4"], day: "mon", slot: 6, place: "Lab 3" },
     ],
   },
   {
@@ -269,7 +321,7 @@ const COURSES = [
       { label: ["S3", "S4"], day: "sat", slot: 5, place: "Ben-ElSarayat Lab 32" },
       { label: ["S5", "S6"], day: "sat", slot: 6, place: "Ben-ElSarayat Lab 35" },
       { label: ["S7", "S8"], day: "sun", slot: 1, place: "Lab 6" },
-      { label: ["S1", "S2"], day: "mon", slot: 5, place: "Lab 3" },
+      { label: ["S1", "S2"], day: "sun", slot: 5, place: "Lab 7" },
     ],
   },
   {
@@ -277,9 +329,11 @@ const COURSES = [
     dept: "DS", level: 3, creditHours: 3, mandatoryFor: ["DS"],
     lectures: [ { day: "sat", slots: [1, 2], place: "Exam Room 410", doctor: "Dr. Mohamed Saad" } ],
     sections: [
-      { label: ["S3", "S4"], day: "sat", slot: 5, place: "Lab 3" },   // [?] verify
-      { label: ["S1", "S2"], day: "sat", slot: 6, place: "Lab 3" },   // [?] verify
-      { label: ["S5", "S6"], day: "sun", slot: 3, place: "Lab 6" },
+      { label: ["S3", "S4"], day: "sat", slot: 5, place: "Lab 3" },
+      { label: ["S1", "S2"], day: "sat", slot: 6, place: "Lab 3" },
+      { label: ["S3", "S4"], day: "sun", slot: 4, place: "Lab 3" },
+      { label: ["S1", "S2"], day: "sun", slot: 5, place: "Lab 3" },
+      { label: ["S5", "S6"], day: "sun", slot: 6, place: "Lab 6" },
     ],
   },
   {
@@ -289,7 +343,7 @@ const COURSES = [
     sections: [
       { label: ["S1", "S2"], day: "sat", slot: 5, place: "Lab 7" },
       { label: ["S3", "S4"], day: "sat", slot: 6, place: "Lab 7" },
-      { label: ["S5", "S6"], day: "sun", slot: 2, place: "Lab 7" },
+      { label: ["S5", "S6"], day: "sun", slot: 2, place: "Lab 8" },
     ],
   },
   {
@@ -297,25 +351,23 @@ const COURSES = [
     dept: "DS", level: 3, creditHours: 3, mandatoryFor: ["DS"],
     lectures: [ { day: "sat", slots: [3, 4], place: "Exam Room 410", doctor: "Dr. Basma Mostafa" } ],
     sections: [
-      { label: ["S1", "S2", "S3", "S4", "S5", "S6"], day: "sun", slot: 1, place: "Exam Room 404" },
+      { label: ["S1", "S2", "S3", "S4", "S5", "S6"], day: "sun", slot: 1, place: "Exam Room 409" },
     ],
   },
   {
     code: "DS312", name: "Decision Support and Future Studies Methodologies",
     dept: "DS", level: 3, creditHours: 3, mandatoryFor: ["DS"],
-    lectures: [ { day: "wed", slots: [5, 6], place: "Hall 8", doctor: "Prof. Motaz Khorshid & Dr. Hayam Gamal & Dr. Basma Mostafa" } ],
+    lectures: [ { day: "mon", slots: [3, 4], place: "Hall 8", doctor: "Prof. Motaz Khorshid & Dr. Hayam Gamal & Dr. Basma Mostafa" } ],
     sections: [
-      { label: ["S5", "S6"], day: "mon", slot: 4, place: "Lab 5" },
-      { label: ["S1", "S2"], day: "wed", slot: 1, place: "Lab 8" },
-      { label: ["S3", "S4"], day: "wed", slot: 2, place: "Lab 8" },
-      { label: ["S1", "S2"], day: "wed", slot: 3, place: "Library Lab" },
-      { label: ["S3", "S4"], day: "wed", slot: 4, place: "Library Lab" },
+      { label: ["S5", "S6"], day: "sun", slot: 3, place: "Lab 6" },
+      { label: ["S1", "S2"], day: "wed", slot: 1, place: "Library Lab" },
+      { label: ["S3", "S4"], day: "wed", slot: 2, place: "Library Lab" },
     ],
   },
   {
     code: null, name: "Introduction to Logic",
     dept: "AI", level: 3, creditHours: 3, mandatoryFor: [],
-    lectures: [ { day: "sat", slots: [1, 2], place: "Exam Room 411", doctor: "Dr. Nermeen" } ],
+    lectures: [ { day: "sat", slots: [1, 2], place: "Exam Room 411", doctor: "Dr. Samar Taha" } ],
     sections: [
       { label: ["S1", "S2"], day: "sat", slot: 3, place: "Ben-ElSarayat Lab 32" },
       { label: ["S3", "S4"], day: "sat", slot: 4, place: "Ben-ElSarayat Lab 32" },
@@ -362,7 +414,7 @@ const COURSES = [
   {
     code: "CS465", name: "Soft Computing",
     dept: "CS", level: 4, creditHours: 3, mandatoryFor: [],
-    lectures: [ { day: "sun", slots: [5, 6], place: "Exam Room 411", doctor: "Dr. Sabah El-Sayed" } ],
+    lectures: [ { day: "tue", slots: [4, 5], place: "Exam Room 411", doctor: "Dr. Sabah El-Sayed" } ],
     sections: [
       { label: ["S1", "S2"], day: "sat", slot: 3, place: "Lab 7" },
       { label: ["S3", "S4"], day: "sat", slot: 4, place: "Lab 7" },
@@ -373,7 +425,7 @@ const COURSES = [
   {
     code: "CS423", name: "Compilers",
     dept: "CS", level: 4, creditHours: 3, mandatoryFor: ["CS"],
-    lectures: [ { day: "sun", slots: [3, 4], place: "Exam Room 411", doctor: "Dr. Amin Alam" } ],
+    lectures: [ { day: "tue", slots: [1, 2], place: "Exam Room 411", doctor: "Dr. Amin Alam" } ],
     sections: [
       { label: ["S3", "S4"], day: "mon", slot: 1, place: "Ben-ElSarayat Lab 32" },
       { label: ["S1", "S2"], day: "mon", slot: 2, place: "Ben-ElSarayat Lab 32" },
@@ -405,9 +457,9 @@ const COURSES = [
     dept: "IT", level: 4, creditHours: 3, mandatoryFor: ["IT"],
     lectures: [ { day: "mon", slots: [2, 3], place: "Exam Room 411", doctor: "Prof. Hoda Onsy & Dr. Mona Soliman & Dr. Ghada Dahy" } ],
     sections: [
-      { label: ["S5"],       day: "mon", slot: 4, place: "Ben-ElSarayat Lab 35" },  // [?] S5 repeated in source
-      { label: ["S5", "S6"], day: "mon", slot: 5, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S1", "S2"], day: "mon", slot: 6, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S1", "S2"], day: "mon", slot: 4, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S3", "S4"], day: "mon", slot: 5, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S5", "S6"], day: "mon", slot: 6, place: "Ben-ElSarayat Lab 35" },
     ],
   },
   {
@@ -415,7 +467,7 @@ const COURSES = [
     dept: "IT", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "thu", slots: [3, 4], place: "Exam Room 409", doctor: "Prof. Imane Saroit & Prof. Amira Kotb" } ],
     sections: [
-      { label: ["S1", "S2"], day: "mon", slot: 4, place: "Ben-ElSarayat Lab 32" },  // [?] inferred
+      { label: ["S1", "S2"], day: "mon", slot: 4, place: "Ben-ElSarayat Lab 32" },
       { label: ["S3", "S4"], day: "mon", slot: 5, place: "Ben-ElSarayat Lab 32" },
       { label: ["S5", "S6"], day: "mon", slot: 6, place: "Ben-ElSarayat Lab 32" },
     ],
@@ -425,7 +477,7 @@ const COURSES = [
     dept: "IT", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "tue", slots: [1, 2], place: "Exam Room 410", doctor: "Prof. Reda Abdel-Wahab" } ],
     sections: [
-      { label: ["S1", "S2"], day: "wed", slot: 3, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S1", "S2"], day: "mon", slot: 1, place: "Lab 3" },
     ],
   },
   {
@@ -479,7 +531,7 @@ const COURSES = [
     lectures: [ { day: "wed", slots: [3, 4], place: "Exam Room 411", doctor: "Dr. Wafaa Momen" } ],
     sections: [
       { label: ["S3", "S4"], day: "sat", slot: 5, place: "Lab 3" },
-      { label: ["S1", "S2"], day: "tue", slot: 5, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S1", "S2"], day: "sat", slot: 6, place: "Library Lab" },
     ],
   },
   {
@@ -527,13 +579,13 @@ const COURSES = [
     sections: [
       { label: ["S3", "S4"], day: "tue", slot: 5, place: "Ben-ElSarayat Lab 32" },
       { label: ["S5", "S6"], day: "tue", slot: 6, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S1", "S2"], day: "wed", slot: 5, place: "Lab 8" },
+      { label: ["S1", "S2"], day: "wed", slot: 4, place: "Library Lab" },
     ],
   },
   {
     code: null, name: "Generative Adversarial Networks",
     dept: "AI", level: 4, creditHours: 3, mandatoryFor: [],
-    lectures: [ { day: "sat", slots: [5, 6], place: "Exam Room 404", doctor: "Dr. Ghada Dahy" } ],  // [?] overlaps Unsupervised Learning in source PDF
+    lectures: [ { day: "sat", slots: [1, 2], place: "Exam Room 404", doctor: "Dr. Ghada Dahy" } ],
     sections: [
       { label: ["S3", "S4"], day: "tue", slot: 1, place: "Ben-ElSarayat Lab 35" },
       { label: ["S1", "S2"], day: "tue", slot: 3, place: "Ben-ElSarayat Lab 35" },
@@ -564,17 +616,17 @@ const COURSES = [
     dept: "AI", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "mon", slots: [1, 2], place: "Exam Room 408", doctor: "Dr. Eman Ahmed" } ],
     sections: [
-      { label: ["S1", "S2"], day: "tue", slot: 1, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S3", "S4"], day: "tue", slot: 2, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S5", "S6"], day: "tue", slot: 3, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S1", "S2"], day: "thu", slot: 1, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S3", "S4"], day: "thu", slot: 2, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S5", "S6"], day: "thu", slot: 3, place: "Ben-ElSarayat Lab 32" },
     ],
   },
   {
     code: null, name: "Brain-Computer Interfacing",
     dept: "AI", level: 4, creditHours: 3, mandatoryFor: [],
-    lectures: [ { day: "mon", slots: [3, 4], place: "Exam Room 408", doctor: "Dr. Mahmoud Eid" } ],
+    lectures: [ { day: "mon", slots: [3, 4], place: "Exam Room 408", doctor: "Prof. Eid Emary & Dr. Mahmoud Eid" } ],
     sections: [
-      { label: ["S1", "S2"], day: "tue", slot: 1, place: "Ben-ElSarayat Lab 32" },  // [?] verify
+      { label: ["S1", "S2"], day: "tue", slot: 1, place: "Ben-ElSarayat Lab 32" },
       { label: ["S3", "S4"], day: "tue", slot: 2, place: "Ben-ElSarayat Lab 35" },
     ],
   },
