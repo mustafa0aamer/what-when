@@ -162,7 +162,7 @@ const COURSES = [
     lectures: [ { day: "sat", slots: [3, 4], place: "Farag Hall", doctor: "Dr. Asmaa Ahmed" } ],
     sections: [
       { label: ["S5", "S6"],  day: "sat", slot: 1, place: "Lab 3" },
-      { label: ["S3", "S4"],  day: "sat", slot: 2, place: "Library Lab" },
+      { label: ["S1", "S2"],  day: "sat", slot: 2, place: "Library Lab" },
       { label: ["S1", "S2"],  day: "sat", slot: 5, place: "Lab 5" },
       { label: ["S5", "S6"],  day: "sat", slot: 6, place: "Lab 5" },
       { label: ["S3", "S4"],  day: "tue", slot: 1, place: "Lab 8" },
@@ -180,7 +180,7 @@ const COURSES = [
       { label: ["S1", "S2"], day: "wed", slot: 1, place: "Lab 6" },
       { label: ["S5", "S6"], day: "wed", slot: 2, place: "Lab 7" },
       { label: ["S7", "S8"], day: "wed", slot: 3, place: "Lab 5" },
-      { label: ["S1", "S2"], day: "sun", slot: 3, place: "Library Lab" },
+      { label: ["S1", "S2"], day: "sun", slot: 4, place: "Library Lab" },
       { label: ["S3", "S4"], day: "mon", slot: 1, place: "Lab 6" },
       { label: ["S5", "S6"], day: "thu", slot: 3, place: "Lab 3" },
       { label: ["S7", "S8"], day: "thu", slot: 4, place: "Lab 6" },
@@ -196,8 +196,6 @@ const COURSES = [
       { label: ["S3", "S4"], day: "mon", slot: 6, place: "Lab 5" },
       { label: ["S5", "S6"], day: "tue", slot: 1, place: "Lab 7" },
       { label: ["S7", "S8"], day: "tue", slot: 4, place: "Lab 7" },
-      { label: ["S7", "S8"], day: "wed", slot: 3, place: "Lab 8" },
-      { label: ["S5", "S6"], day: "wed", slot: 4, place: "Lab 6" },
       /* IT page */
       { label: ["S1", "S2"], day: "sun", slot: 3, place: "Lab 8" },
       { label: ["S3", "S4"], day: "sun", slot: 5, place: "Lab 6" },
@@ -274,12 +272,11 @@ const COURSES = [
   {
     code: "IT313", name: "Computer Architecture",
     dept: "IT", level: 3, creditHours: 3, mandatoryFor: ["IT"],
-    lectures: [ { day: "thu", slots: [5, 6], place: "Exam Room 408", doctor: "Prof. Neveen Aboel-Hadid" } ],
+    lectures: [ { day: "thu", slots: [3, 4], place: "Exam Room 408", doctor: "Prof. Neveen Aboel-Hadid" } ],
     sections: [
       { label: ["S1", "S2"], day: "sun", slot: 3, place: "Lab 3" },
-      { label: ["S3", "S4"], day: "sun", slot: 5, place: "Lab 8" },
       { label: ["S5", "S6"], day: "sun", slot: 4, place: "Lab 6" },
-      { label: ["S3", "S4"], day: "tue", slot: 4, place: "Lab 5" },
+      { label: ["S3", "S4"], day: "sun", slot: 5, place: "Lab 8" },
     ],
   },
   {
@@ -287,7 +284,6 @@ const COURSES = [
     dept: "IT", level: 3, creditHours: 3, mandatoryFor: ["IT"],
     lectures: [ { day: "mon", slots: [2, 3], place: "Exam Room 410", doctor: "Prof. Reda Abdel-Wahab & Dr. Mona Soliman" } ],
     sections: [
-      { label: ["S1", "S2"], day: "sun", slot: 5, place: "Lab 8" },
       { label: ["S1", "S2"], day: "tue", slot: 4, place: "Lab 5" },
     ],
   },
@@ -357,7 +353,10 @@ const COURSES = [
   {
     code: "DS312", name: "Decision Support and Future Studies Methodologies",
     dept: "DS", level: 3, creditHours: 3, mandatoryFor: ["DS"],
-    lectures: [ { day: "mon", slots: [3, 4], place: "Hall 8", doctor: "Prof. Motaz Khorshid & Dr. Hayam Gamal & Dr. Basma Mostafa" } ],
+    lectures: [
+      { day: "mon", slots: [3, 3], place: "Hall 8", doctor: "Prof. Motaz Khorshid & Dr. Hayam Gamal & Dr. Basma Mostafa" },
+      { day: "wed", slots: [3, 3], place: "Hall 8", doctor: "Prof. Motaz Khorshid & Dr. Hayam Gamal & Dr. Basma Mostafa" },
+    ],
     sections: [
       { label: ["S5", "S6"], day: "sun", slot: 3, place: "Lab 6" },
       { label: ["S1", "S2"], day: "wed", slot: 1, place: "Library Lab" },
@@ -405,8 +404,8 @@ const COURSES = [
       { label: ["S3", "S4"], day: "sat", slot: 4, place: "Lab 8" },
       { label: ["S5", "S6"], day: "thu", slot: 5, place: "Ben-ElSarayat Lab 35" },
       { label: ["S7", "S8"], day: "thu", slot: 6, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S1", "S2"], day: "sun", slot: 6, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S3", "S4"], day: "sun", slot: 7, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S1", "S2"], day: "sun", slot: 5, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S3", "S4"], day: "sun", slot: 6, place: "Ben-ElSarayat Lab 32" },
       { label: ["S7", "S8"], day: "wed", slot: 5, place: "Ben-ElSarayat Lab 32" },
       { label: ["S5", "S6"], day: "wed", slot: 6, place: "Ben-ElSarayat Lab 32" },
     ],
@@ -447,9 +446,9 @@ const COURSES = [
     dept: "IT", level: 4, creditHours: 3, mandatoryFor: ["IT"],
     lectures: [ { day: "tue", slots: [4, 5], place: "Hall 7", doctor: "Prof. Haitham Safwat" } ],
     sections: [
-      { label: ["S1", "S2"], day: "mon", slot: 1, place: "Lab 3" },
       { label: ["S1", "S2"], day: "wed", slot: 1, place: "Ben-ElSarayat Lab 35" },
       { label: ["S3", "S4"], day: "wed", slot: 2, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S5", "S6"], day: "wed", slot: 3, place: "Ben-ElSarayat Lab 35" },
     ],
   },
   {
@@ -495,11 +494,10 @@ const COURSES = [
     dept: "IS", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "sat", slots: [3, 4], place: "Exam Room 411", doctor: "Dr. Hatem El-Kady" } ],
     sections: [
-      { label: ["S3", "S4"], day: "sat", slot: 5, place: "Lab 3" },
-      { label: ["S5", "S6"], day: "sun", slot: 1, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S7"],       day: "sun", slot: 2, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S3", "S4"], day: "sun", slot: 3, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S1", "S2"], day: "sun", slot: 6, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S5", "S6"], day: "sun", slot: 2, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S7", "S8"], day: "sun", slot: 3, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S3", "S4"], day: "sun", slot: 4, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S1", "S2"], day: "sun", slot: 5, place: "Ben-ElSarayat Lab 32" },
     ],
   },
   {
@@ -521,7 +519,7 @@ const COURSES = [
       { label: ["S1", "S2"], day: "sun", slot: 1, place: "Ben-ElSarayat Lab 35" },
       { label: ["S3", "S4"], day: "sun", slot: 2, place: "Ben-ElSarayat Lab 35" },
       { label: ["S5", "S6"], day: "sun", slot: 3, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S7"],       day: "sun", slot: 6, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S7", "S8"], day: "sun", slot: 6, place: "Ben-ElSarayat Lab 35" },
     ],
   },
   {
@@ -540,8 +538,8 @@ const COURSES = [
     sections: [
       { label: ["S1", "S2", "S3", "S4", "S5"],         day: "sun", slot: 5, place: "Exam Room 408" },
       { label: ["S6", "S7", "S8", "S9", "S10"],        day: "sun", slot: 6, place: "Exam Room 408" },
-      { label: ["S11", "S12", "S13", "S14", "S15"],    day: "wed", slot: 3, place: "Exam Room 409" },
-      { label: ["S16", "S17", "S18", "S19", "S20"],    day: "wed", slot: 4, place: "Exam Room 409" },
+      { label: ["S11", "S12", "S13", "S14", "S15"],    day: "wed", slot: 4, place: "Exam Room 409" },
+      { label: ["S16", "S17", "S18", "S19", "S20"],    day: "wed", slot: 5, place: "Exam Room 409" },
     ],
   },
   {
@@ -551,8 +549,8 @@ const COURSES = [
     sections: [
       { label: ["S1", "S2", "S3", "S4"],           day: "sun", slot: 3, place: "Exam Room 408" },
       { label: ["S5", "S6", "S7", "S8"],           day: "sun", slot: 4, place: "Exam Room 408" },
-      { label: ["S9", "S10", "S11", "S12"],        day: "wed", slot: 3, place: "Exam Room 404" },
-      { label: ["S13", "S14", "S15", "S16"],       day: "wed", slot: 4, place: "Exam Room 404" },
+      { label: ["S9", "S10", "S11", "S12"],        day: "wed", slot: 4, place: "Exam Room 404" },
+      { label: ["S13", "S14", "S15", "S16"],       day: "wed", slot: 5, place: "Exam Room 404" },
     ],
   },
   {
@@ -578,7 +576,7 @@ const COURSES = [
     sections: [
       { label: ["S3", "S4"], day: "tue", slot: 5, place: "Ben-ElSarayat Lab 32" },
       { label: ["S5", "S6"], day: "tue", slot: 6, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S1", "S2"], day: "wed", slot: 4, place: "Library Lab" },
+      { label: ["S1", "S2"], day: "wed", slot: 5, place: "Library Lab" },
     ],
   },
   {
@@ -587,7 +585,8 @@ const COURSES = [
     lectures: [ { day: "sat", slots: [1, 2], place: "Exam Room 404", doctor: "Dr. Ghada Dahy" } ],
     sections: [
       { label: ["S3", "S4"], day: "tue", slot: 1, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S1", "S2"], day: "tue", slot: 3, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S5", "S6"], day: "tue", slot: 4, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S1", "S2"], day: "thu", slot: 3, place: "Ben-ElSarayat Lab 35" },
     ],
   },
   {
@@ -597,7 +596,7 @@ const COURSES = [
     sections: [
       { label: ["S1", "S2"], day: "tue", slot: 2, place: "Ben-ElSarayat Lab 32" },
       { label: ["S3", "S4"], day: "tue", slot: 4, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S5", "S6"], day: "tue", slot: 4, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S5", "S6"], day: "thu", slot: 4, place: "Ben-ElSarayat Lab 35" },
     ],
   },
   {
@@ -605,9 +604,9 @@ const COURSES = [
     dept: "AI", level: 4, creditHours: 3, mandatoryFor: [],
     lectures: [ { day: "sat", slots: [5, 6], place: "Exam Room 404", doctor: "Dr. Mahmoud Eid" } ],
     sections: [
-      { label: ["S1", "S2"], day: "tue", slot: 1, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S3", "S4"], day: "tue", slot: 2, place: "Ben-ElSarayat Lab 35" },
-      { label: ["S5", "S6"], day: "tue", slot: 3, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S1", "S2"], day: "thu", slot: 1, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S3", "S4"], day: "thu", slot: 2, place: "Ben-ElSarayat Lab 35" },
+      { label: ["S5", "S6"], day: "thu", slot: 3, place: "Ben-ElSarayat Lab 32" },
     ],
   },
   {
@@ -617,7 +616,7 @@ const COURSES = [
     sections: [
       { label: ["S1", "S2"], day: "thu", slot: 1, place: "Ben-ElSarayat Lab 32" },
       { label: ["S3", "S4"], day: "thu", slot: 2, place: "Ben-ElSarayat Lab 32" },
-      { label: ["S5", "S6"], day: "thu", slot: 3, place: "Ben-ElSarayat Lab 32" },
+      { label: ["S5", "S6"], day: "thu", slot: 4, place: "Ben-ElSarayat Lab 32" },
     ],
   },
   {

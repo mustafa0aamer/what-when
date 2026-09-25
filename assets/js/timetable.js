@@ -27,7 +27,8 @@ const Timetable = {
       const course = COURSES[idx];
 
       course.lectures.forEach((lec) => {
-        for (let s = lec.slots[0]; s <= lec.slots[1]; s++) {
+        const endSlot = lec.slots[1] ?? lec.slots[0];
+        for (let s = lec.slots[0]; s <= endSlot; s++) {
           add({
             kind: "lecture", courseIdx: idx, course,
             day: lec.day, slot: s,
