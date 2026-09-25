@@ -10,9 +10,26 @@
 
 /* ------------------------------------------------------------------ Store */
 const Store = {
-  KEY: "whatwhen-state-v2",
+  KEY: "whatwhen-state-v3",
   load() {
-    try { return JSON.parse(localStorage.getItem(this.KEY)) || {}; }
+    try {
+      const saved = JSON.parse(localStorage.getItem(this.KEY));
+      if (saved) return saved;
+      // Fallback/migrate from v2 if present
+      const v2 = JSON.parse(localStorage.getItem("whatwhen-state-v2"));
+      if (v2) {
+        // Keep user preferences (lang, dept, gpa) but clear stale picks
+        return {
+          lang: v2.lang,
+          dept: v2.dept,
+          creditOk: v2.creditOk,
+          project: v2.project,
+          gpaRuleId: v2.gpaRuleId,
+          extraHours: v2.extraHours,
+        };
+      }
+      return {};
+    }
     catch { return {}; }
   },
   save(state) { localStorage.setItem(this.KEY, JSON.stringify(state)); },
