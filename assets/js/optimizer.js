@@ -77,7 +77,7 @@ const ScheduleOptimizer = {
   SCENARIOS: [
     {
       id: "min_walking",
-      icon: "🚶",
+      iconKey: "walk",
       badge: "logistic",
       name: { ar: "أقل مجهود وتنقل بين المباني", en: "Minimal Campus Transit" },
       subtitle: { ar: "تقليل التنقلات البعيدة بين مجمع الامتحانات وبين السرايات والكلية", en: "Minimizes walking between distant venues" },
@@ -88,7 +88,7 @@ const ScheduleOptimizer = {
     },
     {
       id: "compact",
-      icon: "⚡",
+      iconKey: "zap",
       badge: "time",
       name: { ar: "أقل وقت فراغ (يوم مدمج)", en: "Compact Days (No Gaps)" },
       subtitle: { ar: "محاضرات وسكاشن متتالية دون فترات انتظار طويلة", en: "Back-to-back classes with minimal waiting" },
@@ -99,7 +99,7 @@ const ScheduleOptimizer = {
     },
     {
       id: "max_free_days",
-      icon: "🏖️",
+      iconKey: "sunBeach",
       badge: "days",
       name: { ar: "أقصى عدد أيام إجازة", en: "Maximum Days Off" },
       subtitle: { ar: "ضغط الجدول في أقل عدد من أيام الحضور الأسبوعية", en: "Compresses classes into fewer active days" },
@@ -110,7 +110,7 @@ const ScheduleOptimizer = {
     },
     {
       id: "early_bird",
-      icon: "🌅",
+      iconKey: "sunrise",
       badge: "schedule",
       name: { ar: "جدول صباحي (إنهاء مبكر)", en: "Early Bird (Morning Focus)" },
       subtitle: { ar: "تفضيل السكاشن المبكرة وتجنب فترات بعد الظهر والمساء", en: "Prefers morning slots and avoids late afternoons" },
@@ -121,7 +121,7 @@ const ScheduleOptimizer = {
     },
     {
       id: "late_starter",
-      icon: "☕",
+      iconKey: "coffee",
       badge: "schedule",
       name: { ar: "جدول مسائي (بدء متأخر)", en: "Late Starter (No 8 AMs)" },
       subtitle: { ar: "تجنب السلوت الأول (08:00 صباحاً) قدر الإمكان", en: "Avoids 8:00 AM slots as much as possible" },
@@ -132,7 +132,7 @@ const ScheduleOptimizer = {
     },
     {
       id: "worst_case",
-      icon: "⚠️",
+      iconKey: "alertTriangle",
       badge: "stress",
       name: { ar: "سيناريو أسوأ الظروف (اختبار الضغط)", en: "Worst-Case Scenario (Stress Test)" },
       subtitle: { ar: "معرفة أسوأ جدول ممكن لو أغلقت السكاشن المفضلة في التسجيل", en: "Simulates the most exhausting feasible outcome" },

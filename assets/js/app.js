@@ -127,6 +127,15 @@ const ICONS = {
   list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></svg>',
   download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="6.5 9.5 12 15 17.5 9.5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+  chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  walk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="m9 20 3-6-3-3 4-2 3 4 3-1"/><path d="m6 17 3-3-1-4"/></svg>',
+  zap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  sunBeach: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-18 0Z"/><path d="M12 12v8a2 2 0 0 0 4 0"/><path d="M12 3v1"/></svg>',
+  sunrise: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m4.93 10.93 1.41 1.41"/><path d="M20 18h2"/><path d="M2 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 6 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/></svg>',
+  coffee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>',
+  alertTriangle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  hourglass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>',
 };
 
 /* -------------------------------------------------------------- Chrome */
@@ -448,7 +457,7 @@ function renderRegisteredList(model) {
 
   const smartBtn = state.selected.length ? `
     <button class="smart-schedule-btn" id="openOptimizerBtn" type="button" title="${esc(t("smartScheduleBtn"))}">
-      <span class="smart-btn-icon">🎯</span>
+      <span class="smart-btn-icon">${ICONS.target}</span>
       <span>${esc(t("smartScheduleBtn"))}</span>
       <span class="smart-btn-badge">${esc(t("smartScheduleBadge"))}</span>
     </button>` : "";
@@ -488,7 +497,7 @@ function renderOptimizerModal() {
       <div class="modal-card" role="dialog" aria-modal="true">
         <div class="modal-header">
           <div class="modal-title-group">
-            <h2 class="modal-title">🎯 ${esc(t("optimizerTitle"))}</h2>
+            <h2 class="modal-title">${ICONS.target}<span>${esc(t("optimizerTitle"))}</span></h2>
             <p class="modal-subtitle">${esc(t("optimizerSubtitle"))}</p>
           </div>
           <button class="modal-close-btn" id="closeOptimizerBtn" type="button" aria-label="${esc(t("optCloseModal"))}">${ICONS.x}</button>
@@ -561,7 +570,7 @@ function renderOptimizerModal() {
         return `
         <div class="opt-scenario-card ${isSel ? "is-selected" : ""}" data-scenario="${sc.id}">
           <div class="opt-sc-top">
-            <span class="opt-sc-icon">${sc.icon}</span>
+            <span class="opt-sc-icon">${ICONS[sc.iconKey] || ICONS.target}</span>
             <div>
               <div class="opt-sc-title">${esc(tr(sc.name))}</div>
             </div>
@@ -574,7 +583,7 @@ function renderOptimizerModal() {
       <div class="opt-preview-panel">
         <div class="opt-preview-head">
           <h3 class="opt-preview-title">
-            <span>${optResult.scenario.icon}</span>
+            <span class="opt-preview-icon">${ICONS[optResult.scenario.iconKey] || ICONS.target}</span>
             <span>${esc(tr(optResult.scenario.name))}</span>
           </h3>
           <span class="badge badge-mandatory">${esc(t("smartScheduleBadge"))}</span>
@@ -624,18 +633,18 @@ function renderOptimizerModal() {
         <div class="opt-compare-card">
           <div class="opt-compare-info">
             <h4 class="opt-compare-title">
-              <span>${scenario.icon}</span>
+              <span class="opt-compare-title-icon">${ICONS[scenario.iconKey] || ICONS.target}</span>
               <span>${esc(tr(scenario.name))}</span>
             </h4>
             <p class="opt-compare-desc">${esc(tr(scenario.subtitle))}</p>
             <div class="opt-compare-metrics">
-              <span class="opt-cmp-metric">📅 <strong>${best.activeDays}</strong> ${esc(t("metricDaysUnit"))}</span>
+              <span class="opt-cmp-metric">${ICONS.calendar} <strong>${best.activeDays}</strong> ${esc(t("metricDaysUnit"))}</span>
               <span aria-hidden="true">·</span>
-              <span class="opt-cmp-metric">⏳ <strong>${best.totalGapHours}</strong> ${esc(t("metricHoursUnit"))}</span>
+              <span class="opt-cmp-metric">${ICONS.hourglass} <strong>${best.totalGapHours}</strong> ${esc(t("metricHoursUnit"))}</span>
               <span aria-hidden="true">·</span>
-              <span class="opt-cmp-metric">🚶 <strong class="opt-metric-val--strain-${best.transitStrain}">${esc(getStrainLabel(best.transitStrain))}</strong></span>
+              <span class="opt-cmp-metric">${ICONS.walk} <strong class="opt-metric-val--strain-${best.transitStrain}">${esc(getStrainLabel(best.transitStrain))}</strong></span>
               <span aria-hidden="true">·</span>
-              <span class="opt-cmp-metric">🌅 <strong>${best.morningSlotsCount}</strong> 8:00ص</span>
+              <span class="opt-cmp-metric">${ICONS.sunrise} <strong>${best.morningSlotsCount}</strong> ${state.lang === "ar" ? "8:00 ص" : "8:00 AM"}</span>
             </div>
           </div>
           <div class="opt-compare-action">
@@ -661,7 +670,7 @@ function renderOptimizerModal() {
     <div class="modal-card" role="dialog" aria-modal="true">
       <div class="modal-header">
         <div class="modal-title-group">
-          <h2 class="modal-title">🎯 ${esc(t("optimizerTitle"))}</h2>
+          <h2 class="modal-title">${ICONS.target}<span>${esc(t("optimizerTitle"))}</span></h2>
           <p class="modal-subtitle">${esc(t("optimizerSubtitle"))}</p>
         </div>
         <button class="modal-close-btn" id="closeOptimizerBtn" type="button" aria-label="${esc(t("optCloseModal"))}">${ICONS.x}</button>
@@ -670,10 +679,10 @@ function renderOptimizerModal() {
       ${res.feasible ? `
       <div class="opt-tabs">
         <button class="opt-tab ${optState.tab === "focus" ? "active" : ""}" data-tab="focus" type="button">
-          ${esc(t("tabFocusGoal"))}
+          ${ICONS.target}<span>${esc(t("tabFocusGoal"))}</span>
         </button>
         <button class="opt-tab ${optState.tab === "compare" ? "active" : ""}" data-tab="compare" type="button">
-          ${esc(t("tabCompareAll"))}
+          ${ICONS.chart}<span>${esc(t("tabCompareAll"))}</span>
         </button>
       </div>` : ""}
 
