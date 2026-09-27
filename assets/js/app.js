@@ -53,6 +53,14 @@ const state = {
   catalogView: persisted.catalogView || "grid",   // 'grid' | 'list'
 };
 
+/* Smart Optimizer Modal State */
+const optState = {
+  isOpen: false,
+  tab: "focus",                  // 'focus' | 'compare'
+  selectedScenario: "min_walking",
+  appliedScenarioId: null,
+};
+
 function persist() { Store.save(state); }
 
 /* ------------------------------------------------------------- Utilities */
@@ -438,14 +446,242 @@ function renderRegisteredList(model) {
     </div>`;
   }).join("");
 
+  const smartBtn = state.selected.length ? `
+    <button class="smart-schedule-btn" id="openOptimizerBtn" type="button" title="${esc(t("smartScheduleBtn"))}">
+      <span class="smart-btn-icon">🎯</span>
+      <span>${esc(t("smartScheduleBtn"))}</span>
+      <span class="smart-btn-badge">${esc(t("smartScheduleBadge"))}</span>
+    </button>` : "";
+
   return `
   <section class="registered-panel" id="registered">
-    <h2 class="registered-title">${esc(t("registeredTitle"))}</h2>
-    <p class="registered-subtitle">${esc(t("registeredSubtitle"))}</p>
+    <div class="registered-header-row">
+      <div class="registered-header-left">
+        <h2 class="registered-title">${esc(t("registeredTitle"))}</h2>
+        <p class="registered-subtitle">${esc(t("registeredSubtitle"))}</p>
+      </div>
+      ${smartBtn}
+    </div>
     ${state.selected.length
       ? `<div class="reg-list">${items}</div>`
       : `<p class="registered-empty">${esc(t("registeredEmpty"))}</p>`}
   </section>`;
+}
+
+/* ------------------------------------------- Smart Optimizer Modal View */
+function getStrainLabel(strain) {
+  switch (strain) {
+    case "low": return t("optStrainLow");
+    case "medium": return t("optStrainMedium");
+    case "high": return t("optStrainHigh");
+    case "very_high": return t("optStrainVeryHigh");
+    default: return strain;
+  }
+}
+
+function renderOptimizerModal() {
+  if (!optState.isOpen) return "";
+
+  if (!state.selected.length) {
+    return `
+    <div class="modal-backdrop is-open" id="optimizerModal">
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h2 class="modal-title">🎯 ${esc(t("optimizerTitle"))}</h2>
+            <p class="modal-subtitle">${esc(t("optimizerSubtitle"))}</p>
+          </div>
+          <button class="modal-close-btn" id="closeOptimizerBtn" type="button" aria-label="${esc(t("optCloseModal"))}">${ICONS.x}</button>
+        </div>
+        <div class="opt-body">
+          <p class="registered-empty">${esc(t("emptyGrid"))}</p>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const res = typeof ScheduleOptimizer !== "undefined"
+    ? ScheduleOptimizer.solve(state.selected)
+    : { feasible: false, bottleneck: { type: "complex_multi_clash" } };
+
+  let bodyContent = "";
+
+  if (!res.feasible) {
+    const bn = res.bottleneck || {};
+    let desc = "";
+
+    if (bn.type === "lecture_clash" && bn.clashes && bn.clashes.length > 0) {
+      const c = bn.clashes[0];
+      const c1Name = `${c.courses[0].code || ""} ${c.courses[0].name}`.trim();
+      const c2Name = `${c.courses[1].code || ""} ${c.courses[1].name}`.trim();
+      const dayObj = DAYS.find((d) => d.key === c.day);
+      desc = t("optBottleneckLecture")
+        .replace("{c1}", `<strong>${esc(c1Name)}</strong>`)
+        .replace("{c2}", `<strong>${esc(c2Name)}</strong>`)
+        .replace("{day}", `<strong>${esc(tr(dayObj))}</strong>`)
+        .replace("{slot}", `<strong>${c.slot}</strong>`);
+    } else if (bn.type === "all_sections_blocked_by_lectures" && bn.blockedInfo && bn.blockedInfo.length > 0) {
+      const b = bn.blockedInfo[0];
+      const cName = `${b.course.code || ""} ${b.course.name}`.trim();
+      desc = t("optBottleneckSections").replace("{c1}", `<strong>${esc(cName)}</strong>`);
+    } else if (bn.type === "pairwise_section_clash" && bn.courseA && bn.courseB) {
+      const c1Name = `${bn.courseA.code || ""} ${bn.courseA.name}`.trim();
+      const c2Name = `${bn.courseB.code || ""} ${bn.courseB.name}`.trim();
+      desc = t("optBottleneckPairwise")
+        .replace("{c1}", `<strong>${esc(c1Name)}</strong>`)
+        .replace("{c2}", `<strong>${esc(c2Name)}</strong>`);
+    } else {
+      desc = t("optBottleneckGeneric");
+    }
+
+    bodyContent = `
+    <div class="opt-bottleneck-card">
+      <div class="opt-bn-head">
+        ${ICONS.alert}
+        <span>${esc(t("optBottleneckTitle"))}</span>
+      </div>
+      <p class="opt-bn-desc">${esc(t("optBottleneckDesc"))}</p>
+      <div class="opt-bn-details">${desc}</div>
+      <div class="opt-apply-actions">
+        <button class="btn btn-ghost" id="optCloseBtn" type="button">${esc(t("optCloseModal"))}</button>
+      </div>
+    </div>`;
+  } else {
+    const feasibleBanner = `
+    <p class="opt-section-header">
+      ${esc(t("optFeasibleCount").replace("{n}", res.count))}
+    </p>`;
+
+    if (optState.tab === "focus") {
+      const optResult = ScheduleOptimizer.optimizeForScenario(state.selected, optState.selectedScenario);
+      const best = optResult.best;
+
+      const scenariosHtml = ScheduleOptimizer.SCENARIOS.map((sc) => {
+        const isSel = optState.selectedScenario === sc.id;
+        return `
+        <div class="opt-scenario-card ${isSel ? "is-selected" : ""}" data-scenario="${sc.id}">
+          <div class="opt-sc-top">
+            <span class="opt-sc-icon">${sc.icon}</span>
+            <div>
+              <div class="opt-sc-title">${esc(tr(sc.name))}</div>
+            </div>
+          </div>
+          <p class="opt-sc-desc">${esc(tr(sc.subtitle))}</p>
+        </div>`;
+      }).join("");
+
+      const previewHtml = best ? `
+      <div class="opt-preview-panel">
+        <div class="opt-preview-head">
+          <h3 class="opt-preview-title">
+            <span>${optResult.scenario.icon}</span>
+            <span>${esc(tr(optResult.scenario.name))}</span>
+          </h3>
+          <span class="badge badge-mandatory">${esc(t("smartScheduleBadge"))}</span>
+        </div>
+        <p class="opt-sc-desc">${esc(tr(optResult.scenario.desc))}</p>
+
+        <div class="opt-metrics-grid">
+          <div class="opt-metric-box">
+            <span class="opt-metric-label">${esc(t("optActiveDays"))}</span>
+            <span class="opt-metric-val">${best.activeDays} ${esc(t("metricDaysUnit"))}</span>
+          </div>
+          <div class="opt-metric-box">
+            <span class="opt-metric-label">${esc(t("optGapHours"))}</span>
+            <span class="opt-metric-val">${best.totalGapHours} ${esc(t("metricHoursUnit"))}</span>
+          </div>
+          <div class="opt-metric-box">
+            <span class="opt-metric-label">${esc(t("optTransitStrain"))}</span>
+            <span class="opt-metric-val opt-metric-val--strain-${best.transitStrain}">${esc(getStrainLabel(best.transitStrain))}</span>
+          </div>
+          <div class="opt-metric-box">
+            <span class="opt-metric-label">${esc(t("optMorningClasses"))}</span>
+            <span class="opt-metric-val">${best.morningSlotsCount}</span>
+          </div>
+          <div class="opt-metric-box">
+            <span class="opt-metric-label">${esc(t("optLateClasses"))}</span>
+            <span class="opt-metric-val">${best.lateSlotsCount}</span>
+          </div>
+        </div>
+
+        <div class="opt-apply-actions">
+          <button class="btn btn-ghost" id="optCloseBtn" type="button">${esc(t("optCloseModal"))}</button>
+          <button class="btn btn-primary opt-apply-btn" data-scenario="${optResult.scenario.id}" type="button">
+            ${ICONS.check}<span>${esc(t("optApplyBtn"))}</span>
+          </button>
+        </div>
+      </div>` : "";
+
+      bodyContent = `
+      ${feasibleBanner}
+      <h3 class="opt-section-header">${esc(t("optSelectGoalHeader"))}</h3>
+      <div class="opt-scenarios-grid">${scenariosHtml}</div>
+      ${previewHtml}`;
+    } else {
+      const compResult = ScheduleOptimizer.compareAllScenarios(state.selected);
+      const cardsHtml = compResult.comparison.map(({ scenario, best }) => {
+        return `
+        <div class="opt-compare-card">
+          <div class="opt-compare-info">
+            <h4 class="opt-compare-title">
+              <span>${scenario.icon}</span>
+              <span>${esc(tr(scenario.name))}</span>
+            </h4>
+            <p class="opt-compare-desc">${esc(tr(scenario.subtitle))}</p>
+            <div class="opt-compare-metrics">
+              <span class="opt-cmp-metric">📅 <strong>${best.activeDays}</strong> ${esc(t("metricDaysUnit"))}</span>
+              <span aria-hidden="true">·</span>
+              <span class="opt-cmp-metric">⏳ <strong>${best.totalGapHours}</strong> ${esc(t("metricHoursUnit"))}</span>
+              <span aria-hidden="true">·</span>
+              <span class="opt-cmp-metric">🚶 <strong class="opt-metric-val--strain-${best.transitStrain}">${esc(getStrainLabel(best.transitStrain))}</strong></span>
+              <span aria-hidden="true">·</span>
+              <span class="opt-cmp-metric">🌅 <strong>${best.morningSlotsCount}</strong> 8:00ص</span>
+            </div>
+          </div>
+          <div class="opt-compare-action">
+            <button class="btn btn-primary btn-small opt-apply-btn" data-scenario="${scenario.id}" type="button">
+              ${ICONS.check}<span>${esc(t("optApplyBtn"))}</span>
+            </button>
+          </div>
+        </div>`;
+      }).join("");
+
+      bodyContent = `
+      ${feasibleBanner}
+      <h3 class="opt-section-header">${esc(t("optCompareHeader"))}</h3>
+      <div class="opt-compare-list">${cardsHtml}</div>
+      <div class="opt-apply-actions" style="margin-top: 1rem;">
+        <button class="btn btn-ghost" id="optCloseBtn" type="button">${esc(t("optCloseModal"))}</button>
+      </div>`;
+    }
+  }
+
+  return `
+  <div class="modal-backdrop is-open" id="optimizerModal">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h2 class="modal-title">🎯 ${esc(t("optimizerTitle"))}</h2>
+          <p class="modal-subtitle">${esc(t("optimizerSubtitle"))}</p>
+        </div>
+        <button class="modal-close-btn" id="closeOptimizerBtn" type="button" aria-label="${esc(t("optCloseModal"))}">${ICONS.x}</button>
+      </div>
+
+      ${res.feasible ? `
+      <div class="opt-tabs">
+        <button class="opt-tab ${optState.tab === "focus" ? "active" : ""}" data-tab="focus" type="button">
+          ${esc(t("tabFocusGoal"))}
+        </button>
+        <button class="opt-tab ${optState.tab === "compare" ? "active" : ""}" data-tab="compare" type="button">
+          ${esc(t("tabCompareAll"))}
+        </button>
+      </div>` : ""}
+
+      <div class="opt-body">
+        ${bodyContent}
+      </div>
+    </div>
+  </div>`;
 }
 
 /* ------------------------------------------------------ Timetable panel */
@@ -623,12 +859,80 @@ function renderPlanner() {
     ${renderRegisteredList(model)}
 
     ${renderTimetablePanel(model)}
+
+    ${renderOptimizerModal()}
   </div>`;
 }
 
 function bindPlanner() {
   const editBtn = $("#editInfoBtn");
   if (editBtn) editBtn.addEventListener("click", goBackToSetup);
+
+  /* Smart Optimizer bindings */
+  const openOpt = $("#openOptimizerBtn");
+  if (openOpt) {
+    openOpt.addEventListener("click", () => {
+      optState.isOpen = true;
+      renderAll();
+    });
+  }
+
+  const closeOpt = $("#closeOptimizerBtn");
+  if (closeOpt) {
+    closeOpt.addEventListener("click", () => {
+      optState.isOpen = false;
+      renderAll();
+    });
+  }
+
+  const optCloseBtn = $("#optCloseBtn");
+  if (optCloseBtn) {
+    optCloseBtn.addEventListener("click", () => {
+      optState.isOpen = false;
+      renderAll();
+    });
+  }
+
+  const modalBackdrop = $("#optimizerModal");
+  if (modalBackdrop) {
+    modalBackdrop.addEventListener("click", (e) => {
+      if (e.target === modalBackdrop) {
+        optState.isOpen = false;
+        renderAll();
+      }
+    });
+  }
+
+  $$(".opt-tab").forEach((tabBtn) => {
+    tabBtn.addEventListener("click", () => {
+      optState.tab = tabBtn.dataset.tab;
+      renderAll();
+    });
+  });
+
+  $$(".opt-scenario-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      optState.selectedScenario = card.dataset.scenario;
+      renderAll();
+    });
+  });
+
+  $$(".opt-apply-btn").forEach((applyBtn) => {
+    applyBtn.addEventListener("click", () => {
+      const scId = applyBtn.dataset.scenario;
+      if (typeof ScheduleOptimizer !== "undefined") {
+        const optResult = ScheduleOptimizer.optimizeForScenario(state.selected, scId);
+        if (optResult && optResult.feasible && optResult.best) {
+          state.picks = { ...optResult.best.picks };
+          optState.appliedScenarioId = scId;
+          optState.isOpen = false;
+          persist();
+          renderAll();
+          showToast(t("optAppliedToast"));
+        }
+      }
+    });
+  });
 
   $$("[data-view]").forEach((btn) => btn.addEventListener("click", () => {
     state.catalogView = btn.dataset.view;
