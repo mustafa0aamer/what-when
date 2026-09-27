@@ -173,7 +173,7 @@ const COURSES = [
   },
   {
     code: "CS331", name: "Computer Organization and Architecture",
-    dept: "CS", level: 3, creditHours: 3, mandatoryFor: ["CS"],
+    dept: "CS", level: 3, creditHours: 3, mandatoryFor: ["CS", "AI"],
     lectures: [ { day: "sat", slots: [5, 6], place: "Farag Hall", doctor: "Dr. Ahmed Shawky" } ],
     sections: [
       { label: ["S3", "S4"], day: "mon", slot: 3, place: "Lab 7" },
@@ -364,8 +364,8 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Introduction to Logic",
-    dept: "AI", level: 3, creditHours: 3, mandatoryFor: [],
+    code: "AI311", name: "Introduction to Logic",
+    dept: "AI", level: 3, creditHours: 3, mandatoryFor: ["AI"],
     lectures: [ { day: "sat", slots: [1, 2], place: "Exam Room 411", doctor: "Dr. Samar Taha" } ],
     sections: [
       { label: ["S1", "S2"], day: "sat", slot: 3, place: "Ben-ElSarayat Lab 32" },
@@ -375,8 +375,8 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Theoretical Foundations of Machine Learning",
-    dept: "AI", level: 3, creditHours: 3, mandatoryFor: [],
+    code: "AI321", name: "Theoretical Foundations of Machine Learning",
+    dept: "AI", level: 3, creditHours: 3, mandatoryFor: ["AI"],
     lectures: [ { day: "sun", slots: [2, 3], place: "Exam Room 410", doctor: "Prof. Reda Abdel-Wahab" } ],
     sections: [
       { label: ["S1", "S2"], day: "sat", slot: 3, place: "Ben-ElSarayat Lab 35" },
@@ -386,7 +386,7 @@ const COURSES = [
   },
   {
     code: "IT341", name: "Signals and Systems",
-    dept: "IT", level: 3, creditHours: 3, mandatoryFor: ["IT"],
+    dept: "IT", level: 3, creditHours: 3, mandatoryFor: ["IT", "AI"],
     lectures: [ { day: "thu", slots: [5, 6], place: "Farag Hall", doctor: "Dr. Mohamed Refaay" } ],
     sections: [
       { label: ["S1", "S2", "S3"], day: "tue", slot: 1, place: "Exam Room 404" },
@@ -590,8 +590,8 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Intelligent Autonomous Robotics",
-    dept: "AI", level: 4, creditHours: 3, mandatoryFor: [],
+    code: "AI441", name: "Intelligent Autonomous Robotics",
+    dept: "AI", level: 4, creditHours: 3, mandatoryFor: ["AI"],
     lectures: [ { day: "sat", slots: [3, 4], place: "Exam Room 404", doctor: "Dr. Mohamed Wahby" } ],
     sections: [
       { label: ["S1", "S2"], day: "tue", slot: 2, place: "Ben-ElSarayat Lab 32" },
@@ -600,8 +600,8 @@ const COURSES = [
     ],
   },
   {
-    code: null, name: "Unsupervised Learning",
-    dept: "AI", level: 4, creditHours: 3, mandatoryFor: [],
+    code: "AI423", name: "Unsupervised Learning",
+    dept: "AI", level: 4, creditHours: 3, mandatoryFor: ["AI"],
     lectures: [ { day: "sat", slots: [5, 6], place: "Exam Room 404", doctor: "Dr. Mahmoud Eid" } ],
     sections: [
       { label: ["S1", "S2"], day: "thu", slot: 1, place: "Ben-ElSarayat Lab 35" },
