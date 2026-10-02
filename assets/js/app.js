@@ -455,12 +455,28 @@ function renderRegisteredList(model) {
     </div>`;
   }).join("");
 
-  const smartBtn = state.selected.length ? `
-    <button class="smart-schedule-btn" id="openOptimizerBtn" type="button" title="${esc(t("smartScheduleBtn"))}">
-      <span class="smart-btn-icon">${ICONS.target}</span>
-      <span>${esc(t("smartScheduleBtn"))}</span>
-      <span class="smart-btn-badge">${esc(t("smartScheduleBadge"))}</span>
-    </button>` : "";
+  const heroCallout = state.selected.length ? `
+    <div class="opt-hero-callout">
+      <div class="opt-hero-beacon" aria-hidden="true">
+        <span class="beacon-pulse"></span>
+        <span class="beacon-core"></span>
+      </div>
+      <div class="opt-hero-content">
+        <div class="opt-hero-badge">
+          <span class="opt-hero-badge-icon">${ICONS.target}</span>
+          <span>${esc(t("optCalloutBadge"))}</span>
+        </div>
+        <h3 class="opt-hero-title">${esc(t("optCalloutTitle"))}</h3>
+        <p class="opt-hero-desc">${esc(t("optCalloutDesc"))}</p>
+      </div>
+      <div class="opt-hero-cta">
+        <button class="btn-smart-cta open-optimizer-trigger" type="button">
+          <span class="btn-smart-cta-icon">${ICONS.target}</span>
+          <span>${esc(t("optCalloutBtn"))}</span>
+          <span class="btn-smart-cta-arrow" aria-hidden="true">${state.lang === "ar" ? "←" : "→"}</span>
+        </button>
+      </div>
+    </div>` : "";
 
   return `
   <section class="registered-panel" id="registered">
@@ -469,8 +485,8 @@ function renderRegisteredList(model) {
         <h2 class="registered-title">${esc(t("registeredTitle"))}</h2>
         <p class="registered-subtitle">${esc(t("registeredSubtitle"))}</p>
       </div>
-      ${smartBtn}
     </div>
+    ${heroCallout}
     ${state.selected.length
       ? `<div class="reg-list">${items}</div>`
       : `<p class="registered-empty">${esc(t("registeredEmpty"))}</p>`}
@@ -763,6 +779,11 @@ function renderTimetablePanel(model) {
     <div class="tt-head">
       <h2 class="tt-title">${esc(t("myTimetable"))}</h2>
       <div class="tt-actions">
+        ${hasConflicts ? `
+          <button class="btn btn-primary btn-small open-optimizer-trigger tt-opt-btn" type="button" title="${esc(t("optSolveClashesBtn"))}">
+            ${ICONS.target}
+            <span>${esc(t("optSolveClashesBtn"))}</span>
+          </button>` : ""}
         <span class="tt-status ${hasConflicts ? "tt-status--bad" : "tt-status--ok"}">
           ${hasConflicts
             ? `${ICONS.alert}<span>${model.conflicts.length} ${esc(t("conflictsUnit"))}</span>`
@@ -877,14 +898,13 @@ function bindPlanner() {
   const editBtn = $("#editInfoBtn");
   if (editBtn) editBtn.addEventListener("click", goBackToSetup);
 
-  /* Smart Optimizer bindings */
-  const openOpt = $("#openOptimizerBtn");
-  if (openOpt) {
-    openOpt.addEventListener("click", () => {
+  /* Smart Optimizer bindings - wire all trigger touchpoints */
+  $$(".open-optimizer-trigger").forEach((btn) => {
+    btn.addEventListener("click", () => {
       optState.isOpen = true;
       renderAll();
     });
-  }
+  });
 
   const closeOpt = $("#closeOptimizerBtn");
   if (closeOpt) {

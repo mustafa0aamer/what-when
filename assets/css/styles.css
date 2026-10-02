@@ -511,14 +511,17 @@ select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent
 .tt-status--bad { background: var(--danger-soft); color: var(--danger); }
 
 .pending-banner {
-  display: flex; align-items: center; gap: .45rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
   background: var(--warning-soft);
   color: var(--warning);
   border: 1px dashed var(--warning);
   border-radius: var(--radius-sm);
-  font-size: .8rem;
-  padding: .55rem .8rem;
-  margin: 0 0 .8rem;
+  font-size: .82rem;
+  padding: .6rem .85rem;
+  margin: 0 0 .85rem;
+  font-weight: 500;
 }
 
 .tt-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
@@ -826,6 +829,179 @@ select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent
   padding: .15rem .45rem;
   border-radius: 999px;
   letter-spacing: .3px;
+}
+
+/* ================= Hero Callout Banner for Smart Planner ================ */
+.opt-hero-callout {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  background: linear-gradient(135deg, #094e48 0%, #0f766e 55%, #14b8a6 100%);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 1.15rem 1.4rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 10px 28px -6px rgba(15, 118, 110, .45), 0 0 0 1px rgba(255, 255, 255, .15) inset;
+  overflow: hidden;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.opt-hero-callout:hover {
+  box-shadow: 0 14px 34px -8px rgba(15, 118, 110, .6), 0 0 0 1px rgba(255, 255, 255, .25) inset;
+}
+
+.opt-hero-content {
+  flex: 1;
+  min-width: 250px;
+}
+.opt-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: rgba(255, 255, 255, .2);
+  backdrop-filter: blur(4px);
+  padding: .2rem .65rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .3px;
+  margin-bottom: .45rem;
+  border: 1px solid rgba(255, 255, 255, .25);
+  color: #f0fdfa;
+}
+.opt-hero-badge-icon svg { width: 13px; height: 13px; }
+.opt-hero-title {
+  margin: 0 0 .3rem;
+  font-size: 1.12rem;
+  font-weight: 800;
+  line-height: 1.4;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .2);
+}
+.opt-hero-desc {
+  margin: 0;
+  font-size: .84rem;
+  color: rgba(240, 253, 250, .92);
+  line-height: 1.5;
+  max-width: 580px;
+}
+
+.opt-hero-cta {
+  flex-shrink: 0;
+}
+.btn-smart-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: .65rem;
+  background: #ffffff;
+  color: #0f766e;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: .75rem 1.35rem;
+  font-size: .95rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease;
+  white-space: nowrap;
+}
+.btn-smart-cta:hover {
+  background: #f0fdfa;
+  color: #115e59;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, .35);
+}
+.btn-smart-cta:active {
+  transform: translateY(0) scale(1);
+}
+.btn-smart-cta-icon svg {
+  width: 1.25em;
+  height: 1.25em;
+  color: #0f766e;
+}
+.btn-smart-cta-arrow {
+  font-size: 1.15em;
+  line-height: 1;
+  transition: transform .2s ease;
+  display: inline-block;
+}
+.btn-smart-cta:hover .btn-smart-cta-arrow {
+  transform: translateX(-4px);
+}
+[dir="ltr"] .btn-smart-cta:hover .btn-smart-cta-arrow {
+  transform: translateX(4px);
+}
+
+/* Pulsing Beacon */
+.opt-hero-beacon {
+  position: absolute;
+  top: 1rem;
+  inset-inline-end: 1.25rem;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+.beacon-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+}
+.beacon-pulse {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, .45);
+  animation: beacon-wave 2s infinite ease-out;
+}
+@keyframes beacon-wave {
+  0% { transform: scale(.7); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@media (max-width: 720px) {
+  .opt-hero-callout {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1.1rem;
+  }
+  .btn-smart-cta {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+/* Timetable Smart Planner Button */
+.tt-opt-btn {
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #fff;
+  border: 0;
+  box-shadow: 0 2px 8px rgba(15, 118, 110, .35);
+}
+.tt-opt-btn:hover {
+  background: linear-gradient(135deg, #115e59, #0f766e);
+}
+
+/* Summary Nav Smart Planner Button */
+.summary-smart-btn {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border: 1px solid var(--accent);
+  position: relative;
+  font-weight: 700;
+}
+.summary-smart-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.summary-smart-btn svg {
+  color: var(--accent);
+}
+.summary-smart-btn:hover svg {
+  color: #fff;
 }
 
 /* Modal Backdrop & Container */

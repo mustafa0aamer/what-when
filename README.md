@@ -3,13 +3,18 @@
 An unofficial study-schedule planning tool for the Faculty of Computers & AI (Cairo University).
 Arabic-first with an English toggle, RTL/LTR aware, ready for GitHub Pages.
 
-> **Phase 1** — project foundation, data layer, student setup flow, course catalog
-> with the course limit enforced (GPA / credit-hours / graduation-project rules).
-> **Phase 2** — section picking, live timetable grid (days × numbered slots),
-> conflict detection (red = lecture clash, yellow = section clash) with a
-> warnings panel, catalog grid/list views, PNG export (full / occupied-only),
-> floating WhatsApp button, AR/EN with RTL/LTR.
-> Phase 3 adds the admin page (edit `data.js` values from a hidden UI).
+> 📖 **Comprehensive System Documentation:** For full details on the academic bylaws, mathematical Operations Research optimization model, campus distance matrix, technical architecture, and development history, see **[SYSTEM-ARCHITECTURE-AND-LOGIC.md](./SYSTEM-ARCHITECTURE-AND-LOGIC.md)**.
+
+## Key Features
+
+- **Credit Limit & Bylaw Engine:** Automatically calculates maximum allowable courses based on passed credit hours ($\ge 96$ for Level 4), cumulative GPA, graduation project 3-credit hour offset, and 21-hour petition rules.
+- **Bilingual & RTL/LTR:** Native Arabic and English support with responsive typography (IBM Plex Sans Arabic & Inter).
+- **Interactive Timetable & Conflict Engine:** Transposed 2D grid (Saturday–Thursday $\times$ Slots 1–7) with instant classification of Hard Lecture Clashes (red) vs Soft Section Clashes (yellow).
+- **Operations Research (OR) Goal-Based Optimizer:** Client-side CSP/COP solver that searches thousands of schedule combinations in $< 20\text{ ms}$, optimizing across 6 real-world scenarios (minimal walking distance across Cairo University facilities, compact days without idle gaps, maximum free days, early morning focus, late afternoon start, or worst-case stress test).
+- **Campus Distance Matrix:** Accurately models walking strain across 5 distinct campus zones ($Z_1$ FSSR to $Z_5$ Ben-ElSarayat) with penalty multipliers for tight transitions.
+- **Irreducible Inconsistent Subsystem (IIS) Diagnostics:** Pinpoints the exact clashing course pairs when no conflict-free combination exists.
+- **High-DPI Canvas PNG Export:** Generates crisp schedule images in Full or Compact (occupied-only) layouts.
+- **Zero-Emoji Vector Design:** Professional interface built with bespoke inline SVGs.
 
 ## Run it
 
