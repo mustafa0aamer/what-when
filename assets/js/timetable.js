@@ -88,6 +88,9 @@ const Timetable = {
       if (!course) continue;
 
       const sched = this.getCourseSchedule(course, idx, state);
+      const att = (state.attendance && state.attendance[idx]) || {};
+      const lecAtt = att.lecture || "mandatory";
+      const secAtt = att.section || "mandatory";
 
       sched.lectures.forEach((lec) => {
         const endSlot = lec.slots[1] ?? lec.slots[0];
@@ -98,6 +101,7 @@ const Timetable = {
             place: lec.place, doctor: lec.doctor,
             group: sched.hasGroups ? (sched.activeGroup || lec.group) : null,
             first: s === lec.slots[0],
+            attendance: lecAtt,
           });
         }
       });
@@ -110,6 +114,7 @@ const Timetable = {
           day: sec.day, slot: sec.slot,
           place: sec.place, labels: sec.label, pick,
           group: sec.group || null,
+          attendance: secAtt,
         });
       }
     }
@@ -142,7 +147,10 @@ const Timetable = {
   async exportPNG(mode) {
     await document.fonts.ready;
     const model = Timetable.build(state);
-    if (!model.placements.length) { window.alert(t("emptyGrid")); return; }
+    if (!model.placements.length) {
+      if (typeof showToast === "function") showToast(t("emptyGrid"));
+      return;
+    }
 
     const lang = state.lang;
     const rtl = lang === "ar";
@@ -188,21 +196,26 @@ const Timetable = {
 
       const code = p.course.code ? p.course.code + " " : "";
       const courseName = tr(p.course.name);
+      const attSuffix = p.attendance === "skip"
+        ? ` (${t("ttBadgeSkip")})`
+        : p.attendance === "rare"
+          ? ` (${t("ttBadgeRare")})`
+          : "";
       if (p.kind === "section") {
         return [
-          ...w(`${t("sectionWord")} ${p.labels.join(", ")}`, `700 10px ${F}`, C.accent),
+          ...w(`${t("sectionWord")} ${p.labels.join(", ")}${attSuffix}`, `700 10px ${F}`, C.accent),
           ...w((code + courseName).trim(), `600 11px ${F}`, C.text),
           ...w(p.place, `10px ${F}`, C.muted),
         ];
       }
       if (!p.first) {
         return [
-          ...w(`${t("lectureWord")} · ${t("continuation")}`, `700 10px ${F}`, C.accent),
+          ...w(`${t("lectureWord")} · ${t("continuation")}${attSuffix}`, `700 10px ${F}`, C.accent),
           ...w((code + courseName).trim(), `600 11px ${F}`, C.text),
         ];
       }
       const b = [
-        ...w(t("lectureWord"), `700 10px ${F}`, C.accent),
+        ...w(`${t("lectureWord")}${attSuffix}`, `700 10px ${F}`, C.accent),
         ...w((code + courseName).trim(), `600 11px ${F}`, C.text),
         ...w(p.place, `10px ${F}`, C.muted),
       ];

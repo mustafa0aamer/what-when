@@ -149,10 +149,11 @@ const ScheduleOptimizer = {
       return { feasible: false, error: "no_courses_selected" };
     }
 
+    const st = typeof state !== "undefined" ? state : null;
     const courses = selectedCourseIndices.map((idx) => {
       const course = COURSES[idx];
       const sched = typeof Timetable !== "undefined" && Timetable.getCourseSchedule
-        ? Timetable.getCourseSchedule(course, idx, (typeof state !== "undefined" ? state : null))
+        ? Timetable.getCourseSchedule(course, idx, st)
         : { lectures: course.lectures || [], sections: course.sections || [] };
       return {
         idx,
@@ -161,153 +162,194 @@ const ScheduleOptimizer = {
       };
     });
 
-    // Step 1: Extract fixed lecture cells and detect hard lecture-lecture clashes
-    const lectureCells = new Map(); // "day:slot" -> [{ courseIdx, course, place }]
-    const lectureClashes = [];
+    // Identify Senior Flex courses (Level 3/4 taking a course with Group A & B lectures)
+    const seniorFlexIndices = courses
+      .filter(({ course, sched }) => sched.isSeniorFlex && course.hasGroups && course.groups)
+      .map(({ idx }) => idx);
 
-    for (const { idx, course, sched } of courses) {
-      sched.lectures.forEach((lec) => {
-        const lastSlot = lec.slots[1] ?? lec.slots[0];
-        for (let s = lec.slots[0]; s <= lastSlot; s++) {
-          const key = `${lec.day}:${s}`;
-          if (!lectureCells.has(key)) lectureCells.set(key, []);
-          lectureCells.get(key).push({
-            courseIdx: idx,
-            course,
-            day: lec.day,
-            slot: s,
-            place: lec.place,
-            doctor: lec.doctor,
-          });
-        }
-      });
-    }
+    // Generate lecture group combinations for senior flex courses (e.g. A vs B)
+    const lectureGroupAssignments = [];
+    const buildLecCombos = (pos, currentMap) => {
+      if (pos >= seniorFlexIndices.length) {
+        lectureGroupAssignments.push({ ...currentMap });
+        return;
+      }
+      const cIdx = seniorFlexIndices[pos];
+      const preferred = (st && st.lecturePicks && st.lecturePicks[cIdx]) || "A";
+      const other = preferred === "A" ? "B" : "A";
+      currentMap[cIdx] = preferred;
+      buildLecCombos(pos + 1, currentMap);
+      currentMap[cIdx] = other;
+      buildLecCombos(pos + 1, currentMap);
+      delete currentMap[cIdx];
+    };
+    buildLecCombos(0, {});
 
-    for (const [key, items] of lectureCells.entries()) {
-      if (items.length > 1) {
-        const [day, slot] = key.split(":");
-        lectureClashes.push({
-          day,
-          slot: Number(slot),
-          courses: items.map((it) => it.course),
-          courseIndices: items.map((it) => it.courseIdx),
+    const allFeasibleSolutions = [];
+    let firstBottleneck = null;
+
+    for (const lecGroupMap of lectureGroupAssignments) {
+      // Step 1: Extract fixed lecture cells and detect hard lecture-lecture clashes
+      const lectureCells = new Map(); // "day:slot" -> [{ courseIdx, course, place }]
+      const lectureClashes = [];
+
+      for (const { idx, course, sched } of courses) {
+        const activeLecGroup = lecGroupMap[idx] || sched.activeGroup || "A";
+        const lectures = (sched.isSeniorFlex && course.hasGroups && course.groups)
+          ? ((course.groups[activeLecGroup] || course.groups.A).lectures || [])
+          : (sched.lectures || []);
+
+        lectures.forEach((lec) => {
+          const lastSlot = lec.slots[1] ?? lec.slots[0];
+          for (let s = lec.slots[0]; s <= lastSlot; s++) {
+            const key = `${lec.day}:${s}`;
+            if (!lectureCells.has(key)) lectureCells.set(key, []);
+            lectureCells.get(key).push({
+              courseIdx: idx,
+              course,
+              day: lec.day,
+              slot: s,
+              place: lec.place,
+              doctor: lec.doctor,
+            });
+          }
         });
       }
-    }
 
-    // Hard Infeasibility: Mandatory lectures clash directly!
-    if (lectureClashes.length > 0) {
-      return {
-        feasible: false,
-        bottleneck: {
-          type: "lecture_clash",
-          clashes: lectureClashes,
-        },
-      };
-    }
+      for (const [key, items] of lectureCells.entries()) {
+        if (items.length > 1) {
+          const [day, slot] = key.split(":");
+          lectureClashes.push({
+            day,
+            slot: Number(slot),
+            courses: items.map((it) => it.course),
+            courseIndices: items.map((it) => it.courseIdx),
+          });
+        }
+      }
 
-    // Step 2: Filter candidate sections for each course (eliminate sections clashing with ANY lecture)
-    const validSectionsPerCourse = [];
-    const blockedSectionsInfo = [];
-
-    for (const { idx, course, sched } of courses) {
-      if (!sched.sections || sched.sections.length === 0) {
+      // Hard Infeasibility for this lecture group combo: lectures clash directly
+      if (lectureClashes.length > 0) {
+        if (!firstBottleneck) {
+          firstBottleneck = {
+            type: "lecture_clash",
+            clashes: lectureClashes,
+          };
+        }
         continue;
       }
 
-      const valid = [];
-      const blocked = [];
+      // Step 2: Filter candidate sections for each course (eliminate sections clashing with ANY lecture)
+      const validSectionsPerCourse = [];
+      const blockedSectionsInfo = [];
 
-      sched.sections.forEach((sec, secIdx) => {
-        const secKey = `${sec.day}:${sec.slot}`;
-        if (lectureCells.has(secKey)) {
-          const conflictingLec = lectureCells.get(secKey)[0];
-          blocked.push({
-            secIdx,
-            section: sec,
-            conflictingWithCourse: conflictingLec.course,
-            day: sec.day,
-            slot: sec.slot,
-          });
-        } else {
-          valid.push({ secIdx, section: sec });
+      for (const { idx, course, sched } of courses) {
+        if (!sched.sections || sched.sections.length === 0) {
+          continue;
         }
-      });
 
-      if (valid.length === 0) {
-        blockedSectionsInfo.push({
+        const valid = [];
+        const blocked = [];
+
+        sched.sections.forEach((sec, secIdx) => {
+          const secKey = `${sec.day}:${sec.slot}`;
+          if (lectureCells.has(secKey)) {
+            const conflictingLec = lectureCells.get(secKey)[0];
+            blocked.push({
+              secIdx,
+              section: sec,
+              conflictingWithCourse: conflictingLec.course,
+              day: sec.day,
+              slot: sec.slot,
+            });
+          } else {
+            valid.push({ secIdx, section: sec });
+          }
+        });
+
+        if (valid.length === 0) {
+          blockedSectionsInfo.push({
+            courseIdx: idx,
+            course,
+            blocked,
+          });
+        }
+
+        validSectionsPerCourse.push({
           courseIdx: idx,
           course,
-          blocked,
+          valid,
         });
       }
 
-      validSectionsPerCourse.push({
-        courseIdx: idx,
-        course,
-        valid,
-      });
-    }
-
-    if (blockedSectionsInfo.length > 0) {
-      return {
-        feasible: false,
-        bottleneck: {
-          type: "all_sections_blocked_by_lectures",
-          blockedInfo: blockedSectionsInfo,
-        },
-      };
-    }
-
-    // Step 3: Backtracking search to find all feasible combinations
-    const feasibleSolutions = [];
-    const currentPicks = {};
-    const occupiedCells = new Set();
-
-    // Mark fixed lecture cells as occupied
-    for (const key of lectureCells.keys()) {
-      occupiedCells.add(key);
-    }
-
-    function search(cIdx) {
-      if (cIdx >= validSectionsPerCourse.length) {
-        feasibleSolutions.push({ ...currentPicks });
-        return;
-      }
-
-      const { courseIdx, valid } = validSectionsPerCourse[cIdx];
-
-      for (const { secIdx, section } of valid) {
-        const secKey = `${section.day}:${section.slot}`;
-        if (!occupiedCells.has(secKey)) {
-          // Choose
-          currentPicks[courseIdx] = secIdx;
-          occupiedCells.add(secKey);
-
-          // Recurse
-          search(cIdx + 1);
-
-          // Backtrack
-          delete currentPicks[courseIdx];
-          occupiedCells.delete(secKey);
+      if (blockedSectionsInfo.length > 0) {
+        if (!firstBottleneck) {
+          firstBottleneck = {
+            type: "all_sections_blocked_by_lectures",
+            blockedInfo: blockedSectionsInfo,
+          };
         }
+        continue;
+      }
+
+      // Step 3: Backtracking search to find all feasible combinations
+      const feasibleForCombo = [];
+      const currentPicks = {};
+      const occupiedCells = new Set();
+
+      for (const key of lectureCells.keys()) {
+        occupiedCells.add(key);
+      }
+
+      const search = (cIdx) => {
+        if (cIdx >= validSectionsPerCourse.length) {
+          feasibleForCombo.push({
+            picks: { ...currentPicks },
+            lecturePicks: { ...lecGroupMap },
+          });
+          return;
+        }
+
+        const { courseIdx, valid } = validSectionsPerCourse[cIdx];
+
+        for (const { secIdx, section } of valid) {
+          const secKey = `${section.day}:${section.slot}`;
+          if (!occupiedCells.has(secKey)) {
+            currentPicks[courseIdx] = secIdx;
+            occupiedCells.add(secKey);
+
+            search(cIdx + 1);
+
+            delete currentPicks[courseIdx];
+            occupiedCells.delete(secKey);
+          }
+        }
+      };
+
+      search(0);
+
+      if (feasibleForCombo.length === 0) {
+        if (!firstBottleneck) {
+          firstBottleneck = this.diagnosePairwiseBottlenecks(validSectionsPerCourse, lectureCells);
+        }
+      } else {
+        allFeasibleSolutions.push(...feasibleForCombo);
       }
     }
 
-    search(0);
-
-    // If no combination is feasible, analyze pairwise section bottlenecks
-    if (feasibleSolutions.length === 0) {
-      const pairwiseBottleneck = this.diagnosePairwiseBottlenecks(validSectionsPerCourse, lectureCells);
+    if (allFeasibleSolutions.length === 0) {
       return {
         feasible: false,
-        bottleneck: pairwiseBottleneck,
+        bottleneck: firstBottleneck || {
+          type: "complex_multi_clash",
+          message: "No schedule exists without overlapping sections.",
+        },
       };
     }
 
     // Step 4: Evaluate and score all feasible solutions
-    const evaluatedSolutions = feasibleSolutions.map((picks) =>
-      this.evaluateSolution(picks, selectedCourseIndices, lectureCells)
+    const evaluatedSolutions = allFeasibleSolutions.map((solObj) =>
+      this.evaluateSolution(solObj.picks, selectedCourseIndices, solObj.lecturePicks)
     );
 
     return {
@@ -356,21 +398,32 @@ const ScheduleOptimizer = {
     };
   },
 
-  /* Evaluates a single feasible solution against all metrics */
-  evaluateSolution(picks, selectedCourseIndices, lectureCells) {
+  /* Evaluates a single feasible solution against all metrics (honoring Attendance Preferences) */
+  evaluateSolution(picks, selectedCourseIndices, lecturePicks = {}) {
+    const st = typeof state !== "undefined" ? state : null;
+
     // Collect all schedule events grouped by day
     const scheduleByDay = {
       sat: [], sun: [], mon: [], tue: [], wed: [], thu: [],
     };
 
-    // Add lectures and chosen sections
+    // Add lectures and chosen sections along with their attendance preference
     selectedCourseIndices.forEach((cIdx) => {
       const course = COURSES[cIdx];
       const sched = typeof Timetable !== "undefined" && Timetable.getCourseSchedule
-        ? Timetable.getCourseSchedule(course, cIdx, (typeof state !== "undefined" ? state : null))
+        ? Timetable.getCourseSchedule(course, cIdx, st)
         : { lectures: course.lectures || [], sections: course.sections || [] };
 
-      sched.lectures.forEach((lec) => {
+      const att = (st && st.attendance && st.attendance[cIdx]) || {};
+      const lecAtt = att.lecture || "mandatory";
+      const secAtt = att.section || "mandatory";
+
+      const activeLecGroup = (lecturePicks && lecturePicks[cIdx]) || sched.activeGroup || "A";
+      const lectures = (sched.isSeniorFlex && course.hasGroups && course.groups)
+        ? ((course.groups[activeLecGroup] || course.groups.A).lectures || [])
+        : (sched.lectures || []);
+
+      lectures.forEach((lec) => {
         const lastSlot = lec.slots[1] ?? lec.slots[0];
         for (let s = lec.slots[0]; s <= lastSlot; s++) {
           scheduleByDay[lec.day].push({
@@ -380,6 +433,7 @@ const ScheduleOptimizer = {
             day: lec.day,
             slot: s,
             place: lec.place,
+            attendance: lecAtt,
           });
         }
       });
@@ -396,11 +450,14 @@ const ScheduleOptimizer = {
           slot: sec.slot,
           place: sec.place,
           labels: sec.label,
+          attendance: secAtt,
         });
       }
     });
 
-    let activeDaysCount = 0;
+    let mandatoryActiveDays = 0;
+    let rareOnlyDays = 0;
+    let totalAttendedDays = 0;
     let totalGapSlots = 0;
     let totalTransitCost = 0;
     let tightTransitsCount = 0;
@@ -409,31 +466,40 @@ const ScheduleOptimizer = {
     let lateSlotsCount = 0;    // slot 5, 6, 7 (after 2:30 PM)
     const dayStats = {};
 
-    for (const [dayKey, events] of Object.entries(scheduleByDay)) {
+    for (const [dayKey, allEvents] of Object.entries(scheduleByDay)) {
+      // Exclude classes marked as "skip" (مش هحضر) from physical campus metrics
+      const events = allEvents.filter((e) => e.attendance !== "skip");
       if (!events.length) continue;
-      activeDaysCount++;
 
-      // Sort events by slot number
+      totalAttendedDays++;
+      const hasMandatory = events.some((e) => e.attendance === "mandatory");
+      if (hasMandatory) {
+        mandatoryActiveDays++;
+      } else {
+        rareOnlyDays++;
+      }
+
+      // Sort attended events by slot number
       events.sort((a, b) => a.slot - b.slot);
 
       const slots = events.map((e) => e.slot);
       const minSlot = Math.min(...slots);
       const maxSlot = Math.max(...slots);
 
-      // Idle slots between first and last class
+      // Idle slots between first and last physically attended class
       const occupiedUniqueSlots = new Set(slots);
       const span = maxSlot - minSlot + 1;
       const dayIdleSlots = span - occupiedUniqueSlots.size;
       totalGapSlots += Math.max(0, dayIdleSlots);
 
-      // Track slot preferences
+      // Track slot preferences (Rare is treated same as Mandatory here)
       occupiedUniqueSlots.forEach((s) => {
         if (s === 1) morningSlotsCount++;
         if (s === 2) slot2Count++;
         if (s >= 5) lateSlotsCount++;
       });
 
-      // Compute transit strain between consecutive classes on this day
+      // Compute transit strain between consecutive attended classes on this day
       let dayTransitCost = 0;
       for (let i = 0; i < events.length - 1; i++) {
         const ev1 = events[i];
@@ -452,12 +518,16 @@ const ScheduleOptimizer = {
 
       dayStats[dayKey] = {
         classesCount: events.length,
+        hasMandatory,
         minSlot,
         maxSlot,
         idleSlots: dayIdleSlots,
         transitCost: dayTransitCost,
       };
     }
+
+    // Active regular weekly days: mandatoryActiveDays (or totalAttendedDays if all classes are rare)
+    const activeDaysCount = mandatoryActiveDays > 0 ? mandatoryActiveDays : totalAttendedDays;
 
     // Walking strain qualitative label
     let transitStrain = "low";
@@ -473,7 +543,11 @@ const ScheduleOptimizer = {
 
     return {
       picks,
+      lecturePicks,
       activeDays: activeDaysCount,
+      mandatoryActiveDays,
+      rareOnlyDays,
+      totalAttendedDays,
       totalGapSlots,
       totalGapHours,
       totalTransitCost,
@@ -494,12 +568,12 @@ const ScheduleOptimizer = {
         return (sol.totalTransitCost * 12) + (sol.tightTransitsCount * 120) + (sol.totalGapSlots * 2);
 
       case "compact":
-        // Prioritize minimum idle gaps, then minimum active days
-        return (sol.totalGapSlots * 25) + (sol.activeDays * 6) + (sol.totalTransitCost * 0.4);
+        // Prioritize minimum idle gaps, then minimum attended days
+        return (sol.totalGapSlots * 25) + (sol.totalAttendedDays * 6) + (sol.totalTransitCost * 0.4);
 
       case "max_free_days":
-        // Prioritize fewest active attendance days
-        return (sol.activeDays * 150) + (sol.totalGapSlots * 8) + (sol.totalTransitCost * 0.3);
+        // Prioritize fewest mandatory attendance days first; days with only 'rare' classes have much lower penalty
+        return (sol.mandatoryActiveDays * 150) + (sol.rareOnlyDays * 30) + (sol.totalGapSlots * 8) + (sol.totalTransitCost * 0.3);
 
       case "early_bird":
         // Penalize late slots heavily (5, 6, 7)
@@ -511,7 +585,7 @@ const ScheduleOptimizer = {
 
       case "worst_case":
         // Invert: higher stress is "selected" as the worst case
-        return (sol.totalTransitCost * 8) + (sol.totalGapSlots * 20) + (sol.activeDays * 35) + (sol.tightTransitsCount * 80);
+        return (sol.totalTransitCost * 8) + (sol.totalGapSlots * 20) + (sol.totalAttendedDays * 35) + (sol.tightTransitsCount * 80);
 
       default:
         return sol.totalGapSlots + sol.activeDays;

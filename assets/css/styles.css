@@ -2449,5 +2449,240 @@ select:focus, input[type="text"]:focus, input[type="number"]:focus {
   }
 }
 
+/* Timetable Grid Attendance Indicators */
+.tt-item--att-skip {
+  opacity: 0.72;
+  border-style: dashed !important;
+}
 
+.tt-item--att-rare {
+  opacity: 0.88;
+  border-style: dashed !important;
+}
 
+.tt-att-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08rem 0.38rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tt-att-tag--skip {
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.tt-att-tag--rare {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* ============================================================================
+ * Interactive Help Tips (?) & GPA Manual Input Wrapper
+ * ========================================================================== */
+
+.section-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  flex-wrap: wrap;
+}
+
+.setup-title-row {
+  margin-bottom: 1.35rem;
+}
+
+.setup-title-row .card-title,
+.catalog-header .section-title-row .card-title,
+.registered-header-left .registered-title {
+  margin: 0;
+}
+
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+
+.student-type-card {
+  align-items: center;
+  padding: .9rem 1.15rem;
+}
+
+.student-type-card input[type="radio"] {
+  margin-top: 0;
+}
+
+.student-type-title {
+  margin-bottom: 0;
+}
+
+.gpa-manual-wrap {
+  margin-top: .55rem;
+  animation: fadeIn .18s ease-out;
+}
+
+.cohort-title-line {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.opt-hero-title-row .opt-hero-title {
+  margin: 0;
+}
+
+/* Question mark (?) button */
+.help-tip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #cbd5e1;
+  background: var(--surface, #ffffff);
+  color: var(--text-muted, #64748b);
+  font-family: var(--font-en, sans-serif);
+  font-size: .75rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .15s ease;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.help-tip-btn:hover,
+.help-tip-btn.is-active {
+  background: var(--accent, #0f766e);
+  border-color: var(--accent, #0f766e);
+  color: #ffffff;
+  transform: scale(1.06);
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.28);
+}
+
+/* Contrast variant inside dark/teal hero banner */
+.opt-hero-callout .help-tip-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+}
+
+.opt-hero-callout .help-tip-btn:hover,
+.opt-hero-callout .help-tip-btn.is-active {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: var(--accent-strong, #0f766e);
+}
+
+/* Contrast variant inside amber senior banner */
+.cohort-senior-banner .help-tip-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.cohort-senior-banner .help-tip-btn:hover,
+.cohort-senior-banner .help-tip-btn.is-active {
+  background: #d97706;
+  border-color: #d97706;
+  color: #ffffff;
+}
+
+/* Floating Popover (Desktop & Mobile) */
+.help-popover {
+  position: fixed;
+  z-index: 2200;
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.35);
+  padding: .75rem .95rem;
+  font-size: .84rem;
+  line-height: 1.55;
+  animation: helpPopIn .16s cubic-bezier(.16, 1, .3, 1);
+}
+
+.help-popover--desktop {
+  width: max-content;
+  max-width: min(320px, calc(100vw - 24px));
+}
+
+.help-popover--mobile {
+  left: 14px;
+  right: 14px;
+  bottom: 18px;
+  max-width: none;
+  border-radius: 14px;
+  padding: .95rem 1.1rem;
+  font-size: .88rem;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.45);
+}
+
+.help-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2190;
+  background: rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(1.5px);
+}
+
+.help-popover-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .65rem;
+}
+
+.help-popover-text {
+  margin: 0;
+  flex: 1;
+  color: #f8fafc;
+  font-weight: 500;
+}
+
+.help-popover-close {
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .95rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background .15s, color .15s;
+}
+
+.help-popover-close:hover {
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+@keyframes helpPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

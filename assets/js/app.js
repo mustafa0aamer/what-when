@@ -46,6 +46,8 @@ const state = {
   isNewcomer: persisted.isNewcomer ?? false,// true for first-term freshmen (no GPA or hours)
   passedHours: persisted.passedHours != null ? Number(persisted.passedHours) : null,
   gpa: persisted.gpa != null ? Number(persisted.gpa) : null,
+  gpaMode: persisted.gpaMode || "band",     // 'band' | 'manual'
+  gpaBand: persisted.gpaBand || null,       // '3.0' | '2.0' | '1.5' | '0.8' | 'manual'
   level: persisted.level || (persisted.passedHours != null ? ACADEMIC_BYLAWS.calcLevel(persisted.passedHours) : 4),
   group: persisted.group || "A",           // 'A' | 'B' (cohort for levels 1 & 2)
   lecturePicks: persisted.lecturePicks || {}, // courseIndex -> 'A' | 'B' (for levels 3 & 4 senior flexibility)
@@ -96,6 +98,143 @@ function esc(str) {
   }[c]));
 }
 
+function helpTip(text, id = "") {
+  if (!text) return "";
+  const idAttr = id ? ` id="${esc(id)}"` : "";
+  return `<button type="button" class="help-tip-btn"${idAttr} data-tip="${esc(text)}" aria-label="${esc(t("helpTipAria"))}" aria-expanded="false">?</button>`;
+}
+
+let activeHelpBtn = null;
+
+function closeHelpPopover() {
+  if (activeHelpBtn) {
+    activeHelpBtn.classList.remove("is-active");
+    activeHelpBtn.setAttribute("aria-expanded", "false");
+    activeHelpBtn = null;
+  }
+  $("#helpPopover")?.remove();
+  $("#helpPopoverBackdrop")?.remove();
+}
+
+function openHelpPopover(btn) {
+  const text = btn.getAttribute("data-tip");
+  if (!text) return;
+
+  if (activeHelpBtn === btn) {
+    closeHelpPopover();
+    return;
+  }
+
+  closeHelpPopover();
+  activeHelpBtn = btn;
+  btn.classList.add("is-active");
+  btn.setAttribute("aria-expanded", "true");
+
+  const isMobile = window.innerWidth <= 640;
+  if (isMobile) {
+    const backdrop = document.createElement("div");
+    backdrop.id = "helpPopoverBackdrop";
+    backdrop.className = "help-popover-backdrop";
+    backdrop.addEventListener("click", closeHelpPopover);
+    document.body.appendChild(backdrop);
+  }
+
+  const pop = document.createElement("div");
+  pop.id = "helpPopover";
+  pop.className = `help-popover ${isMobile ? "help-popover--mobile" : "help-popover--desktop"}`;
+  pop.setAttribute("role", "tooltip");
+  pop.innerHTML = `
+    <div class="help-popover-inner">
+      <p class="help-popover-text">${esc(text)}</p>
+      <button type="button" class="help-popover-close" aria-label="Close">×</button>
+    </div>`;
+  document.body.appendChild(pop);
+
+  pop.querySelector(".help-popover-close")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeHelpPopover();
+  });
+
+  if (!isMobile) {
+    const rect = btn.getBoundingClientRect();
+    const popRect = pop.getBoundingClientRect();
+    const margin = 12;
+
+    let top = rect.bottom + 8;
+    let placeAbove = false;
+    if (top + popRect.height > window.innerHeight - margin && rect.top - popRect.height - 8 > margin) {
+      top = rect.top - popRect.height - 8;
+      placeAbove = true;
+    }
+
+    let left = rect.left + rect.width / 2 - popRect.width / 2;
+    left = Math.max(margin, Math.min(window.innerWidth - popRect.width - margin, left));
+
+    pop.style.top = `${Math.round(top)}px`;
+    pop.style.left = `${Math.round(left)}px`;
+    if (placeAbove) pop.classList.add("is-above");
+  }
+}
+
+function initHelpPopovers() {
+  if (document.body.dataset.helpBound) return;
+  document.body.dataset.helpBound = "true";
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".help-tip-btn");
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      openHelpPopover(btn);
+      return;
+    }
+    if (activeHelpBtn && !e.target.closest("#helpPopover")) {
+      closeHelpPopover();
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && activeHelpBtn) {
+      closeHelpPopover();
+    }
+  });
+
+  window.addEventListener("scroll", () => {
+    if (activeHelpBtn && window.innerWidth > 640) closeHelpPopover();
+  }, { passive: true });
+
+  window.addEventListener("resize", () => {
+    if (activeHelpBtn) closeHelpPopover();
+  });
+}
+
+function resolveGpaBand() {
+  if (state.gpaMode === "manual" || state.gpaBand === "manual") return "manual";
+  if (state.gpaBand && ["3.0", "2.0", "1.5", "0.8"].includes(state.gpaBand)) return state.gpaBand;
+  if (state.gpa != null && !isNaN(state.gpa)) {
+    const g = Number(state.gpa);
+    // Check if it matches one of the standard band values or infer band
+    if (g >= 3.0) return "3.0";
+    if (g >= 2.0) return "2.0";
+    if (g > 1.0) return "1.5";
+    return "0.8";
+  }
+  return "";
+}
+
+function formatGpaSummary() {
+  if (state.isNewcomer) return `— (${esc(t("newcomerGpaTag"))})`;
+  if (state.gpaMode === "manual" && state.gpa != null) {
+    return esc(Number(state.gpa).toFixed(2));
+  }
+  const band = resolveGpaBand();
+  if (band === "3.0") return esc(t("gpaSummary3Plus"));
+  if (band === "2.0") return esc(t("gpaSummary2To3"));
+  if (band === "1.5") return esc(t("gpaSummary1To2"));
+  if (band === "0.8") return esc(t("gpaSummaryBelow1"));
+  return state.gpa != null ? esc(Number(state.gpa).toFixed(2)) : "—";
+}
+
 function usedHours() {
   const coursesHours = state.selected.reduce((sum, idx) => {
     const c = COURSES[idx];
@@ -134,10 +273,28 @@ function countCustomAttendance() {
     const att = state.attendance[idx];
     if (att) {
       if (att.lecture && att.lecture !== "mandatory") count++;
-      if (att.section && att.section !== "mandatory") count++;
+      const course = COURSES[idx];
+      const sched = typeof Timetable !== "undefined" && Timetable.getCourseSchedule
+        ? Timetable.getCourseSchedule(course, idx, state)
+        : (course || { sections: [] });
+      if (sched.sections && sched.sections.length > 0 && att.section && att.section !== "mandatory") {
+        count++;
+      }
     }
   });
   return count;
+}
+
+function pruneOrphanedCourseState() {
+  const selSet = new Set(state.selected);
+  [state.picks, state.lecturePicks, state.attendance].forEach((mapObj) => {
+    if (!mapObj) return;
+    Object.keys(mapObj).forEach((k) => {
+      if (!selSet.has(Number(k))) {
+        delete mapObj[k];
+      }
+    });
+  });
 }
 
 function computeLimit() {
@@ -344,9 +501,10 @@ function renderChrome() {
 function renderSetup() {
   const isNewcomer = state.isNewcomer ?? false;
   const hoursVal = state.passedHours != null ? state.passedHours : "";
+  const selectedBand = resolveGpaBand();
   const gpaVal = state.gpa != null ? state.gpa : "";
   const initialHours = state.passedHours != null ? state.passedHours : 96;
-  const initialGpa = state.gpa != null ? state.gpa : 2.5;
+  const initialGpa = state.gpa != null ? state.gpa : (selectedBand && selectedBand !== "manual" ? Number(selectedBand) : 2.5);
 
   const currentLevel = isNewcomer ? 1 : ACADEMIC_BYLAWS.calcLevel(initialHours);
   const isSpec = isNewcomer ? false : ACADEMIC_BYLAWS.isSpecialized(initialHours);
@@ -363,8 +521,10 @@ function renderSetup() {
 
   return `
   <section class="card setup-card">
-    <h1 class="card-title">${esc(t("setupTitle"))}</h1>
-    <p class="card-subtitle">${esc(t("setupSubtitle"))}</p>
+    <div class="section-title-row setup-title-row">
+      <h1 class="card-title">${esc(t("setupTitle"))}</h1>
+      ${helpTip(t("setupSubtitle"))}
+    </div>
 
     <form id="setupForm" novalidate>
       <div class="student-type-selector" role="radiogroup" aria-label="Student Category">
@@ -374,8 +534,8 @@ function renderSetup() {
             <div class="student-type-title">
               <span class="student-type-icon">${ICONS.userGraduate}</span>
               <strong>${esc(t("studentTypeNewcomer"))}</strong>
+              ${helpTip(t("studentTypeNewcomerDesc"))}
             </div>
-            <p class="student-type-desc">${esc(t("studentTypeNewcomerDesc"))}</p>
           </div>
         </label>
 
@@ -385,8 +545,8 @@ function renderSetup() {
             <div class="student-type-title">
               <span class="student-type-icon">${ICONS.book}</span>
               <strong>${esc(t("studentTypeReturning"))}</strong>
+              ${helpTip(t("studentTypeReturningDesc"))}
             </div>
-            <p class="student-type-desc">${esc(t("studentTypeReturningDesc"))}</p>
           </div>
         </label>
       </div>
@@ -394,17 +554,31 @@ function renderSetup() {
       <div id="returningStudentInputs" ${isNewcomer ? 'style="display:none;"' : ""}>
         <div class="form-grid-2">
           <div class="field">
-            <label class="field-label" for="passedHours">${esc(t("passedHoursLabel"))}</label>
+            <label class="field-label" for="passedHours">
+              <span>${esc(t("passedHoursLabel"))}</span>
+              ${helpTip(t("passedHoursHint"))}
+            </label>
             <input type="number" id="passedHours" min="0" max="180" step="1"
                    placeholder="${esc(t("passedHoursPh"))}" value="${hoursVal}">
-            <p class="field-hint">${esc(t("passedHoursHint"))}</p>
           </div>
 
           <div class="field">
-            <label class="field-label" for="gpaInput">${esc(t("gpaInputLabel"))}</label>
-            <input type="number" id="gpaInput" min="0" max="4.00" step="0.01"
-                   placeholder="${esc(t("gpaInputPh"))}" value="${gpaVal}">
-            <p class="field-hint">${esc(t("gpaHint"))}</p>
+            <label class="field-label" for="gpaSelect">
+              <span>${esc(t("gpaInputLabel"))}</span>
+              ${helpTip(t("gpaHint"))}
+            </label>
+            <select id="gpaSelect">
+              <option value="" disabled ${selectedBand === "" ? "selected" : ""}>${esc(t("gpaSelectPlaceholder"))}</option>
+              <option value="3.0" ${selectedBand === "3.0" ? "selected" : ""}>${esc(t("gpaBand3Plus"))}</option>
+              <option value="2.0" ${selectedBand === "2.0" ? "selected" : ""}>${esc(t("gpaBand2To3"))}</option>
+              <option value="1.5" ${selectedBand === "1.5" ? "selected" : ""}>${esc(t("gpaBand1To2"))}</option>
+              <option value="0.8" ${selectedBand === "0.8" ? "selected" : ""}>${esc(t("gpaBandBelow1"))}</option>
+              <option value="manual" ${selectedBand === "manual" ? "selected" : ""}>${esc(t("gpaBandManual"))}</option>
+            </select>
+            <div class="gpa-manual-wrap" id="gpaManualWrap" ${selectedBand === "manual" ? "" : 'style="display:none;"'}>
+              <input type="number" id="gpaInput" min="0" max="4.00" step="0.01"
+                     placeholder="${esc(t("gpaInputPh"))}" value="${selectedBand === "manual" ? gpaVal : ""}">
+            </div>
           </div>
         </div>
       </div>
@@ -422,6 +596,7 @@ function renderSetup() {
             <span class="${isSpec ? "badge-spec-active" : "badge-spec-general"}" id="calcSpecBadge">
               ${esc(isSpec ? t("statusSpecialized") : t("statusGeneral"))}
             </span>
+            ${helpTip(isSpec ? t("specializedNotice") : t("notSpecializedNotice"), "calcSpecTip")}
           </span>
         </div>
         <div class="live-calc-row">
@@ -433,20 +608,21 @@ function renderSetup() {
       </div>
 
       <div class="field" id="deptField" ${isSpec ? "" : 'style="display:none;"'}>
-        <label class="field-label" for="dept">${esc(t("deptLabel"))}</label>
+        <label class="field-label" for="dept">
+          <span>${esc(t("deptLabel"))}</span>
+          ${helpTip(t("specializedNotice"))}
+        </label>
         <select id="dept" ${isSpec ? "required" : ""}>
           <option value="" disabled ${state.dept && state.dept !== "GEN" ? "" : "selected"}>${esc(t("deptPlaceholder"))}</option>
           ${deptOptions}
         </select>
-        <p class="field-hint">${esc(t("specializedNotice"))}</p>
-      </div>
-
-      <div class="notice-box" id="preSpecNotice" ${!isSpec && !isNewcomer ? "" : 'style="display:none;"'}>
-        ${ICONS.book} <span>${esc(t("notSpecializedNotice"))}</span>
       </div>
 
       <div class="field" id="projectField" ${canProj ? "" : 'style="display:none;"'}>
-        <span class="field-label">${esc(t("projectLabel"))}</span>
+        <span class="field-label">
+          <span>${esc(t("projectLabel"))}</span>
+          ${helpTip(t("projectHint") + " — " + t("projectEligibilityNote"))}
+        </span>
         <div class="choice-row">
           <label class="choice">
             <input type="radio" name="project" value="yes" ${projectChecked(true)}>
@@ -457,17 +633,14 @@ function renderSetup() {
             <span>${esc(t("no"))}</span>
           </label>
         </div>
-        <p class="field-hint">${esc(t("projectHint"))} · <em>${esc(t("projectEligibilityNote"))}</em></p>
       </div>
 
       <div class="overload-box" id="extraHoursBox" ${canOver ? "" : 'style="display:none;"'}>
         <label class="choice choice-block">
           <input type="checkbox" id="extraHours" ${checked(state.extraHours)}>
           <strong>${esc(t("extraHoursLabel"))}</strong>
+          ${helpTip(currentLevel === 4 && initialGpa >= 2.0 ? t("overloadReasonLevel4") : t("overloadReasonGpa3"), "overloadReasonTip")}
         </label>
-        <p class="overload-reason" id="overloadReasonText">
-          ${esc(currentLevel === 4 && initialGpa >= 2.0 ? t("overloadReasonLevel4") : t("overloadReasonGpa3"))}
-        </p>
       </div>
 
       <button class="btn btn-primary btn-block" type="submit">${esc(t("startBtn"))}</button>
@@ -480,19 +653,33 @@ function bindSetup() {
   if (!form) return;
 
   const hoursInput = $("#passedHours");
+  const gpaSelect = $("#gpaSelect");
+  const gpaManualWrap = $("#gpaManualWrap");
   const gpaInput = $("#gpaInput");
   const deptField = $("#deptField");
   const deptSelect = $("#dept");
-  const preSpecNotice = $("#preSpecNotice");
   const projectField = $("#projectField");
   const extraHoursBox = $("#extraHoursBox");
   const extraHoursCheck = $("#extraHours");
-  const overloadReasonText = $("#overloadReasonText");
+  const overloadReasonTip = $("#overloadReasonTip");
   const returningInputs = $("#returningStudentInputs");
 
   const calcLevelBadge = $("#calcLevelBadge");
   const calcSpecBadge = $("#calcSpecBadge");
+  const calcSpecTip = $("#calcSpecTip");
   const calcLimitDisplay = $("#calcLimitDisplay");
+
+  const getEffectiveGpa = () => {
+    const band = gpaSelect ? gpaSelect.value : "";
+    if (band === "manual") {
+      const raw = gpaInput?.value ? gpaInput.value.trim() : "";
+      return raw !== "" ? Math.max(0, Math.min(4.0, Number(raw))) : 0;
+    }
+    if (band !== "") {
+      return Number(band);
+    }
+    return 0;
+  };
 
   const updateCalculations = () => {
     const isNewcomer = form.querySelector('input[name="studentType"]:checked')?.value === "newcomer";
@@ -503,21 +690,19 @@ function bindSetup() {
         calcSpecBadge.className = "badge-spec-general";
         calcSpecBadge.textContent = t("statusGeneral");
       }
+      if (calcSpecTip) calcSpecTip.setAttribute("data-tip", t("notSpecializedNotice"));
       if (calcLimitDisplay) {
         calcLimitDisplay.textContent = t("gpaHoursDesc").replace("{h}", 16);
       }
       if (deptField) deptField.style.display = "none";
-      if (preSpecNotice) preSpecNotice.style.display = "none";
       if (projectField) projectField.style.display = "none";
       if (extraHoursBox) extraHoursBox.style.display = "none";
       return;
     }
 
     const rawHours = hoursInput?.value ? hoursInput.value.trim() : "";
-    const rawGpa = gpaInput?.value ? gpaInput.value.trim() : "";
-
     const hours = rawHours !== "" ? Math.max(0, Number(rawHours)) : 0;
-    const gpa = rawGpa !== "" ? Math.max(0, Math.min(4.0, Number(rawGpa))) : 0;
+    const gpa = getEffectiveGpa();
 
     const level = ACADEMIC_BYLAWS.calcLevel(hours);
     const isSpec = ACADEMIC_BYLAWS.isSpecialized(hours);
@@ -531,19 +716,20 @@ function bindSetup() {
       calcSpecBadge.className = isSpec ? "badge-spec-active" : "badge-spec-general";
       calcSpecBadge.textContent = isSpec ? t("statusSpecialized") : t("statusGeneral");
     }
+    if (calcSpecTip) {
+      calcSpecTip.setAttribute("data-tip", isSpec ? t("specializedNotice") : t("notSpecializedNotice"));
+    }
     if (calcLimitDisplay) {
       calcLimitDisplay.textContent = t("gpaHoursDesc").replace("{h}", baseHours);
     }
 
     // Department field visibility
-    if (deptField && preSpecNotice && deptSelect) {
+    if (deptField && deptSelect) {
       if (isSpec) {
         deptField.style.display = "";
-        preSpecNotice.style.display = "none";
         deptSelect.required = true;
       } else {
         deptField.style.display = "none";
-        preSpecNotice.style.display = "";
         deptSelect.required = false;
       }
     }
@@ -558,14 +744,15 @@ function bindSetup() {
     }
 
     // Overload 21h visibility
-    if (extraHoursBox && extraHoursCheck && overloadReasonText) {
+    if (extraHoursBox && extraHoursCheck) {
       extraHoursBox.style.display = canOver ? "" : "none";
       if (!canOver) {
         extraHoursCheck.checked = false;
-      } else {
-        overloadReasonText.textContent = (level === 4 && gpa >= 2.0)
-          ? t("overloadReasonLevel4")
-          : t("overloadReasonGpa3");
+      } else if (overloadReasonTip) {
+        overloadReasonTip.setAttribute(
+          "data-tip",
+          (level === 4 && gpa >= 2.0) ? t("overloadReasonLevel4") : t("overloadReasonGpa3")
+        );
       }
     }
   };
@@ -588,6 +775,20 @@ function bindSetup() {
   });
 
   if (hoursInput) hoursInput.addEventListener("input", updateCalculations);
+
+  if (gpaSelect) {
+    gpaSelect.addEventListener("change", () => {
+      const isManual = gpaSelect.value === "manual";
+      if (gpaManualWrap) {
+        gpaManualWrap.style.display = isManual ? "" : "none";
+      }
+      if (isManual && gpaInput) {
+        gpaInput.focus();
+      }
+      updateCalculations();
+    });
+  }
+
   if (gpaInput) gpaInput.addEventListener("input", updateCalculations);
 
   form.addEventListener("submit", (e) => {
@@ -596,8 +797,11 @@ function bindSetup() {
     state.isNewcomer = isNewcomer;
 
     if (isNewcomer) {
+      const prevCount = state.selected.length;
       state.passedHours = 0;
       state.gpa = null;
+      state.gpaMode = "band";
+      state.gpaBand = null;
       state.level = 1;
       state.dept = "GEN";
       state.group = state.group || "A";
@@ -611,37 +815,44 @@ function bindSetup() {
         const c = COURSES[idx];
         return c && c.level === 1 && !c.isRetake;
       });
-      Object.keys(state.picks).forEach((k) => {
-        if (!state.selected.includes(Number(k))) {
-          delete state.picks[k];
-        }
-      });
+      while (usedHours() > state.hoursLimit && state.selected.length > 0) {
+        state.selected.pop();
+      }
+      pruneOrphanedCourseState();
       state.step = "catalog";
       computeLimit();
       persist();
       renderAll();
+      if (state.selected.length < prevCount) {
+        showToast(t("setupPrunedToast"));
+      }
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
     const rawHours = hoursInput ? hoursInput.value.trim() : "";
-    const rawGpa = gpaInput ? gpaInput.value.trim() : "";
+    const selectedBand = gpaSelect ? gpaSelect.value : "";
+    const isManualGpa = selectedBand === "manual";
+    const rawManualGpa = gpaInput ? gpaInput.value.trim() : "";
 
     if (rawHours === "" || isNaN(Number(rawHours)) || Number(rawHours) < 0 ||
-        rawGpa === "" || isNaN(Number(rawGpa)) || Number(rawGpa) < 0 || Number(rawGpa) > 4.0) {
+        selectedBand === "" ||
+        (isManualGpa && (rawManualGpa === "" || isNaN(Number(rawManualGpa)) || Number(rawManualGpa) < 0 || Number(rawManualGpa) > 4.0))) {
       form.classList.add("shake");
       setTimeout(() => form.classList.remove("shake"), 400);
       return;
     }
 
     const hours = Math.round(Number(rawHours));
-    const gpa = Number(Number(rawGpa).toFixed(2));
+    const gpa = isManualGpa ? Number(Number(rawManualGpa).toFixed(2)) : Number(selectedBand);
     const level = ACADEMIC_BYLAWS.calcLevel(hours);
     const isSpec = ACADEMIC_BYLAWS.isSpecialized(hours);
     const canProj = ACADEMIC_BYLAWS.canTakeProject(hours);
 
     state.passedHours = hours;
     state.gpa = gpa;
+    state.gpaMode = isManualGpa ? "manual" : "band";
+    state.gpaBand = selectedBand;
     state.level = level;
 
     if (isSpec) {
@@ -670,6 +881,20 @@ function bindSetup() {
     state.extraHours = eligibleOverload && extraHoursCheck.checked;
 
     computeLimit();
+
+    // Sanitize selected courses against new specialization rules and credit limit
+    const prevCount = state.selected.length;
+    state.selected = state.selected.filter((idx) => {
+      const c = COURSES[idx];
+      if (!c) return false;
+      if (!isSpec && c.level >= 3) return false;
+      return true;
+    });
+    while (usedHours() > state.hoursLimit && state.selected.length > 0) {
+      state.selected.pop();
+    }
+    pruneOrphanedCourseState();
+
     state.step = "catalog";
 
     if (typeof Analytics !== "undefined") {
@@ -678,6 +903,9 @@ function bindSetup() {
 
     persist();
     renderAll();
+    if (state.selected.length < prevCount) {
+      showToast(t("setupPrunedToast"));
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
@@ -806,9 +1034,10 @@ function renderRegisteredList(model) {
       <div class="cohort-selector-header">
         <div class="cohort-title-wrap">
           <span class="cohort-icon">${ICONS.users}</span>
-          <div>
+          <div class="cohort-title-line">
             <h4 class="cohort-title">${esc(t("cohortSelectTitle"))}</h4>
-            <p class="cohort-desc">${esc(t("cohortSelectDesc"))}</p>
+            ${helpTip(t("cohortSelectDesc") + " " + t("cohortSwitchHint"))}
+            <span class="cohort-status-tag">${currentGroup === 'B' ? esc(t("showingGroupB")) : esc(t("showingGroupA"))}</span>
           </div>
         </div>
         <div class="cohort-toggle-pills" role="radiogroup" aria-label="${esc(t("cohortGroupLabel"))}">
@@ -822,10 +1051,6 @@ function renderRegisteredList(model) {
           </button>
         </div>
       </div>
-      <div class="cohort-selector-footer">
-        <span class="cohort-status-tag">${currentGroup === 'B' ? esc(t("showingGroupB")) : esc(t("showingGroupA"))}</span>
-        <span class="cohort-tip">${esc(t("cohortSwitchHint"))}</span>
-      </div>
     </div>` : "";
 
   const hasGroupCourses = state.selected.some((idx) => COURSES[idx]?.hasGroups);
@@ -833,9 +1058,9 @@ function renderRegisteredList(model) {
     <div class="cohort-senior-banner">
       <div class="senior-banner-head">
         <span class="senior-banner-icon">${ICONS.zap}</span>
-        <div>
+        <div class="section-title-row">
           <h4 class="senior-banner-title">${esc(t("seniorFlexTitle"))}</h4>
-          <p class="senior-banner-desc">${esc(t("seniorFlexDesc"))}</p>
+          ${helpTip(t("seniorFlexDesc"))}
         </div>
       </div>
     </div>` : "";
@@ -908,10 +1133,11 @@ function renderRegisteredList(model) {
         ${sched.hasGroups && !sched.isSeniorFlex ? `<span class="badge badge-group">${sched.activeGroup === 'A' ? esc(t("groupShortA")) : esc(t("groupShortB"))}</span>` : ""}
         ${(() => {
           const att = getCourseAttendance(idx);
-          if (att.lecture === "mandatory" && att.section === "mandatory") return "";
+          const hasSec = sched.sections && sched.sections.length > 0;
           const parts = [];
           if (att.lecture !== "mandatory") parts.push(`${t("attendanceLectureLabel")}: ${att.lecture === "skip" ? t("attendanceOptSkip") : t("attendanceOptRare")}`);
-          if (att.section !== "mandatory") parts.push(`${t("attendanceSectionLabel").split(" ")[0]}: ${att.section === "skip" ? t("attendanceOptSkip") : t("attendanceOptRare")}`);
+          if (hasSec && att.section !== "mandatory") parts.push(`${t("attendanceSectionLabel").split(" ")[0]}: ${att.section === "skip" ? t("attendanceOptSkip") : t("attendanceOptRare")}`);
+          if (!parts.length) return "";
           return `<span class="badge badge-attendance-pill" title="${esc(parts.join(" · "))}">${ICONS.userCheck}<span>${esc(parts.join(" · "))}</span></span>`;
         })()}
       </div>
@@ -935,8 +1161,10 @@ function renderRegisteredList(model) {
           <span class="opt-hero-badge-icon">${ICONS.target}</span>
           <span>${esc(t("optCalloutBadge"))}</span>
         </div>
-        <h3 class="opt-hero-title">${esc(t("optCalloutTitle"))}</h3>
-        <p class="opt-hero-desc">${esc(t("optCalloutDesc"))}</p>
+        <div class="section-title-row opt-hero-title-row">
+          <h3 class="opt-hero-title">${esc(t("optCalloutTitle"))}</h3>
+          ${helpTip(t("optCalloutDesc"))}
+        </div>
       </div>
       <div class="opt-hero-cta">
         <button class="btn-smart-cta open-optimizer-trigger" type="button">
@@ -955,8 +1183,10 @@ function renderRegisteredList(model) {
           <span class="attendance-trigger-icon">${ICONS.userCheck}</span>
         </div>
         <div class="attendance-trigger-info">
-          <h4 class="attendance-trigger-title">${esc(t("attendanceBtn"))}</h4>
-          <p class="attendance-trigger-desc">${esc(t("attendanceBtnSub"))}</p>
+          <div class="section-title-row">
+            <h4 class="attendance-trigger-title">${esc(t("attendanceBtn"))}</h4>
+            ${helpTip(t("attendanceBtnSub"))}
+          </div>
         </div>
       </div>
       <button type="button" class="btn btn-outline btn-small open-attendance-modal-btn">
@@ -970,8 +1200,10 @@ function renderRegisteredList(model) {
   <section class="registered-panel" id="registered">
     <div class="registered-header-row">
       <div class="registered-header-left">
-        <h2 class="registered-title">${esc(t("registeredTitle"))}</h2>
-        <p class="registered-subtitle">${esc(t("registeredSubtitle"))}</p>
+        <div class="section-title-row">
+          <h2 class="registered-title">${esc(t("registeredTitle"))}</h2>
+          ${helpTip(t("registeredSubtitle"))}
+        </div>
       </div>
       <div class="registered-header-right">
         <span class="badge badge-credit">${usedHours()} / ${state.hoursLimit} ${esc(t("creditHoursUnit"))}</span>
@@ -1008,8 +1240,7 @@ function renderOptimizerModal() {
       <div class="modal-card" role="dialog" aria-modal="true">
         <div class="modal-header">
           <div class="modal-title-group">
-            <h2 class="modal-title">${ICONS.target}<span>${esc(t("optimizerTitle"))}</span></h2>
-            <p class="modal-subtitle">${esc(t("optimizerSubtitle"))}</p>
+            <h2 class="modal-title">${ICONS.target}<span>${esc(t("optimizerTitle"))}</span>${helpTip(t("optimizerSubtitle"))}</h2>
           </div>
           <button class="modal-close-btn" id="closeOptimizerBtn" type="button" aria-label="${esc(t("optCloseModal"))}">${ICONS.x}</button>
         </div>
@@ -1032,8 +1263,8 @@ function renderOptimizerModal() {
 
     if (bn.type === "lecture_clash" && bn.clashes && bn.clashes.length > 0) {
       const c = bn.clashes[0];
-      const c1Name = `${c.courses[0].code || ""} ${c.courses[0].name}`.trim();
-      const c2Name = `${c.courses[1].code || ""} ${c.courses[1].name}`.trim();
+      const c1Name = `${c.courses[0].code || ""} ${tr(c.courses[0].name)}`.trim();
+      const c2Name = `${c.courses[1].code || ""} ${tr(c.courses[1].name)}`.trim();
       const dayObj = DAYS.find((d) => d.key === c.day);
       desc = t("optBottleneckLecture")
         .replace("{c1}", `<strong>${esc(c1Name)}</strong>`)
@@ -1042,11 +1273,11 @@ function renderOptimizerModal() {
         .replace("{slot}", `<strong>${c.slot}</strong>`);
     } else if (bn.type === "all_sections_blocked_by_lectures" && bn.blockedInfo && bn.blockedInfo.length > 0) {
       const b = bn.blockedInfo[0];
-      const cName = `${b.course.code || ""} ${b.course.name}`.trim();
+      const cName = `${b.course.code || ""} ${tr(b.course.name)}`.trim();
       desc = t("optBottleneckSections").replace("{c1}", `<strong>${esc(cName)}</strong>`);
     } else if (bn.type === "pairwise_section_clash" && bn.courseA && bn.courseB) {
-      const c1Name = `${bn.courseA.code || ""} ${bn.courseA.name}`.trim();
-      const c2Name = `${bn.courseB.code || ""} ${bn.courseB.name}`.trim();
+      const c1Name = `${bn.courseA.code || ""} ${tr(bn.courseA.name)}`.trim();
+      const c2Name = `${bn.courseB.code || ""} ${tr(bn.courseB.name)}`.trim();
       desc = t("optBottleneckPairwise")
         .replace("{c1}", `<strong>${esc(c1Name)}</strong>`)
         .replace("{c2}", `<strong>${esc(c2Name)}</strong>`);
@@ -1067,9 +1298,11 @@ function renderOptimizerModal() {
       </div>
     </div>`;
   } else {
+    const customAttCount = countCustomAttendance();
     const feasibleBanner = `
     <p class="opt-section-header">
       ${esc(t("optFeasibleCount").replace("{n}", res.count))}
+      ${customAttCount > 0 ? `<span class="badge badge-attendance-pill" style="margin-inline-start: 0.5rem;">${ICONS.userCheck}<span>${esc(t("optAttendanceActiveNote").replace("{n}", customAttCount))}</span></span>` : ""}
     </p>`;
 
     if (optState.tab === "focus") {
@@ -1082,11 +1315,11 @@ function renderOptimizerModal() {
         <div class="opt-scenario-card ${isSel ? "is-selected" : ""}" data-scenario="${sc.id}">
           <div class="opt-sc-top">
             <span class="opt-sc-icon">${ICONS[sc.iconKey] || ICONS.target}</span>
-            <div>
+            <div class="section-title-row">
               <div class="opt-sc-title">${esc(tr(sc.name))}</div>
+              ${helpTip(tr(sc.subtitle))}
             </div>
           </div>
-          <p class="opt-sc-desc">${esc(tr(sc.subtitle))}</p>
         </div>`;
       }).join("");
 
@@ -1096,10 +1329,10 @@ function renderOptimizerModal() {
           <h3 class="opt-preview-title">
             <span class="opt-preview-icon">${ICONS[optResult.scenario.iconKey] || ICONS.target}</span>
             <span>${esc(tr(optResult.scenario.name))}</span>
+            ${helpTip(tr(optResult.scenario.desc))}
           </h3>
           <span class="badge badge-mandatory">${esc(t("smartScheduleBadge"))}</span>
         </div>
-        <p class="opt-sc-desc">${esc(tr(optResult.scenario.desc))}</p>
 
         <div class="opt-metrics-grid">
           <div class="opt-metric-box">
@@ -1146,8 +1379,8 @@ function renderOptimizerModal() {
             <h4 class="opt-compare-title">
               <span class="opt-compare-title-icon">${ICONS[scenario.iconKey] || ICONS.target}</span>
               <span>${esc(tr(scenario.name))}</span>
+              ${helpTip(tr(scenario.subtitle))}
             </h4>
-            <p class="opt-compare-desc">${esc(tr(scenario.subtitle))}</p>
             <div class="opt-compare-metrics">
               <span class="opt-cmp-metric">${ICONS.calendar} <strong>${best.activeDays}</strong> ${esc(t("metricDaysUnit"))}</span>
               <span aria-hidden="true">·</span>
@@ -1181,8 +1414,7 @@ function renderOptimizerModal() {
     <div class="modal-card" role="dialog" aria-modal="true">
       <div class="modal-header">
         <div class="modal-title-group">
-          <h2 class="modal-title">${ICONS.target}<span>${esc(t("optimizerTitle"))}</span></h2>
-          <p class="modal-subtitle">${esc(t("optimizerSubtitle"))}</p>
+          <h2 class="modal-title">${ICONS.target}<span>${esc(t("optimizerTitle"))}</span>${helpTip(t("optimizerSubtitle"))}</h2>
         </div>
         <button class="modal-close-btn" id="closeOptimizerBtn" type="button" aria-label="${esc(t("optCloseModal"))}">${ICONS.x}</button>
       </div>
@@ -1216,10 +1448,17 @@ function renderGridCell(day, slot, model) {
     const title = (p.first || p.kind === "section")
       ? `<strong class="tt-code">${esc(p.course.code || "")}</strong><span class="tt-cname">${courseName}</span>`
       : `<strong class="tt-code">${esc(p.course.code || "")}</strong><span class="tt-cont">${esc(t("continuation"))}</span>`;
+    const attCls = p.attendance === "skip" ? "tt-item--att-skip" : p.attendance === "rare" ? "tt-item--att-rare" : "";
+    const attBadge = p.attendance === "skip"
+      ? `<span class="tt-att-tag tt-att-tag--skip">${esc(t("ttBadgeSkip"))}</span>`
+      : p.attendance === "rare"
+        ? `<span class="tt-att-tag tt-att-tag--rare">${esc(t("ttBadgeRare"))}</span>`
+        : "";
     return `
-    <div class="tt-item tt-item--${p.kind} ${p.conflict ? "tt-item--clash-" + p.conflict : ""}">
+    <div class="tt-item tt-item--${p.kind} ${attCls} ${p.conflict ? "tt-item--clash-" + p.conflict : ""}">
       <div class="tt-item-top">
         <span class="tt-kind">${p.kind === "lecture" ? esc(t("lectureWord")) : esc(t("sectionWord"))}</span>
+        ${attBadge}
         ${p.conflict ? `<span class="tt-clash">${ICONS.alert}</span>` : ""}
       </div>
       <div class="tt-item-title">${title}</div>
@@ -1360,7 +1599,7 @@ function renderPlanner() {
     <div class="summary-bar">
       <div class="summary-item">
         <span class="summary-label">${esc(t("levelLabel") || "المستوى")}</span>
-        <span class="summary-value">${state.isNewcomer ? esc(t("newcomerBadge")) : esc(t("levelPrefix")) + " " + state.level}${state.group ? " · " + esc(t("groupTag").replace("{g}", state.group)) : ""}</span>
+        <span class="summary-value">${state.isNewcomer ? esc(t("newcomerBadge")) : esc(t("levelPrefix")) + " " + state.level}${(state.isNewcomer || (state.level || 1) <= 2) && state.group ? " · " + esc(t("groupTag").replace("{g}", state.group)) : ""}</span>
       </div>
       <div class="summary-item">
         <span class="summary-label">${esc(t("deptLabel"))}</span>
@@ -1368,7 +1607,7 @@ function renderPlanner() {
       </div>
       <div class="summary-item">
         <span class="summary-label">GPA</span>
-        <span class="summary-value">${state.isNewcomer ? "— (" + esc(t("newcomerGpaTag")) + ")" : (state.gpa != null ? Number(state.gpa).toFixed(2) : "—")}</span>
+        <span class="summary-value">${formatGpaSummary()}</span>
       </div>
       <div class="summary-item">
         <span class="summary-label">${esc(t("yourHoursLimit"))}</span>
@@ -1392,8 +1631,10 @@ function renderPlanner() {
 
     <div class="catalog-col" id="catalog">
       <header class="catalog-header">
-        <h1 class="card-title">${esc(t("catalogTitle"))}</h1>
-        <p class="card-subtitle">${esc(t("catalogSubtitle"))}</p>
+        <div class="section-title-row">
+          <h1 class="card-title">${esc(t("catalogTitle"))}</h1>
+          ${helpTip(t("catalogSubtitle"))}
+        </div>
         <div class="view-toggle" role="group" aria-label="catalog view">
           <button type="button" data-view="grid" class="view-btn ${!asList ? "is-active" : ""}">${ICONS.grid}<span>${esc(t("viewGrid"))}</span></button>
           <button type="button" data-view="list" class="view-btn ${asList ? "is-active" : ""}">${ICONS.list}<span>${esc(t("viewList"))}</span></button>
@@ -1479,6 +1720,9 @@ function bindPlanner() {
         const optResult = ScheduleOptimizer.optimizeForScenario(state.selected, scId);
         if (optResult && optResult.feasible && optResult.best) {
           state.picks = { ...optResult.best.picks };
+          if (optResult.best.lecturePicks) {
+            state.lecturePicks = { ...(state.lecturePicks || {}), ...optResult.best.lecturePicks };
+          }
           optState.appliedScenarioId = scId;
           optState.isOpen = false;
           persist();
@@ -1534,7 +1778,7 @@ function bindPlanner() {
         }
       } else {
         state.selected = state.selected.filter((i) => i !== idx);
-        delete state.picks[idx];
+        pruneOrphanedCourseState();
         if (typeof Analytics !== "undefined") {
           Analytics.trackCourseToggled(course?.code, tr(course?.name), false);
         }
@@ -1663,8 +1907,8 @@ function renderScheduleModal() {
             ${ICONS.fileText}
             <span>${esc(t("scheduleModalTitle"))}</span>
             <span class="schedule-version-badge">${esc(sched.version)}</span>
+            ${helpTip(modalSub)}
           </h2>
-          <p class="schedule-modal-subtitle">${esc(modalSub)}</p>
         </div>
         <div class="schedule-modal-actions">
           <a class="btn btn-ghost btn-small" href="${esc(sched.shareUrl)}" target="_blank" rel="noopener">
@@ -1767,6 +2011,7 @@ function renderAttendanceModal() {
           </div>
         </div>
 
+        ${sched.sections && sched.sections.length > 0 ? `
         <!-- Section Attendance Row (General for course) -->
         <div class="attendance-component-row">
           <div class="attendance-row-meta">
@@ -1784,7 +2029,7 @@ function renderAttendanceModal() {
               ${esc(t("attendanceOptRare"))}
             </button>
           </div>
-        </div>
+        </div>` : ""}
       </div>
     </div>`;
   }).join("");
@@ -1942,6 +2187,7 @@ function bindTour() {
 
 /* -------------------------------------------------------------- Render */
 function renderAll() {
+  closeHelpPopover();
   renderChrome();
   const app = $("#app");
   if (state.step === "catalog" && state.maxCourses === 0) computeLimit();
@@ -1997,5 +2243,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof Analytics !== "undefined") {
     Analytics.init();
   }
+  initHelpPopovers();
   renderAll();
 });
