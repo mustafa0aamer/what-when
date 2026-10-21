@@ -143,22 +143,32 @@ const ScheduleOptimizer = {
     },
   ],
 
-  /* Core Solver: Finds all feasible section combinations using Backtracking CSP */
+  /* Core Solver: Finds all feasible section combinations using Backtracking CSP
+   * Tier 1: Strict 0-conflict CSP (always tried first)
+   * Tier 2: Minimum-Conflict CSP Relaxation (if Tier 1 fails AND state.allowConflicts is true)
+   */
   solve(selectedCourseIndices) {
     if (!selectedCourseIndices || !selectedCourseIndices.length) {
       return { feasible: false, error: "no_courses_selected" };
     }
 
     const st = typeof state !== "undefined" ? state : null;
+    const allowConflicts = Boolean(st && st.allowConflicts);
+    const pinnedMap = (st && st.pinnedSections) || {};
+    const currentPicksMap = (st && st.picks) || {};
+
     const courses = selectedCourseIndices.map((idx) => {
       const course = COURSES[idx];
       const sched = typeof Timetable !== "undefined" && Timetable.getCourseSchedule
         ? Timetable.getCourseSchedule(course, idx, st)
         : { lectures: course.lectures || [], sections: course.sections || [] };
+      const isPinned = Boolean(pinnedMap[idx] && currentPicksMap[idx] != null && sched.sections && sched.sections[currentPicksMap[idx]]);
       return {
         idx,
         course,
         sched,
+        isPinned,
+        pinnedSecIdx: isPinned ? currentPicksMap[idx] : null,
       };
     });
 
@@ -228,7 +238,7 @@ const ScheduleOptimizer = {
         }
       }
 
-      // Hard Infeasibility for this lecture group combo: lectures clash directly
+      // Hard Infeasibility for 0-conflict tier: lectures clash directly
       if (lectureClashes.length > 0) {
         if (!firstBottleneck) {
           firstBottleneck = {
@@ -239,11 +249,12 @@ const ScheduleOptimizer = {
         continue;
       }
 
-      // Step 2: Filter candidate sections for each course (eliminate sections clashing with ANY lecture)
+      // Step 2: Filter candidate sections for each course (respecting Pinned Sections & eliminating sections clashing with ANY lecture)
       const validSectionsPerCourse = [];
       const blockedSectionsInfo = [];
+      let pinnedBlockedCourse = null;
 
-      for (const { idx, course, sched } of courses) {
+      for (const { idx, course, sched, isPinned, pinnedSecIdx } of courses) {
         if (!sched.sections || sched.sections.length === 0) {
           continue;
         }
@@ -252,6 +263,9 @@ const ScheduleOptimizer = {
         const blocked = [];
 
         sched.sections.forEach((sec, secIdx) => {
+          // If this course has a pinned section, only consider that exact section index
+          if (isPinned && secIdx !== pinnedSecIdx) return;
+
           const secKey = `${sec.day}:${sec.slot}`;
           if (lectureCells.has(secKey)) {
             const conflictingLec = lectureCells.get(secKey)[0];
@@ -268,10 +282,14 @@ const ScheduleOptimizer = {
         });
 
         if (valid.length === 0) {
+          if (isPinned) {
+            pinnedBlockedCourse = course;
+          }
           blockedSectionsInfo.push({
             courseIdx: idx,
             course,
             blocked,
+            isPinned,
           });
         }
 
@@ -279,20 +297,28 @@ const ScheduleOptimizer = {
           courseIdx: idx,
           course,
           valid,
+          isPinned,
         });
       }
 
       if (blockedSectionsInfo.length > 0) {
         if (!firstBottleneck) {
-          firstBottleneck = {
-            type: "all_sections_blocked_by_lectures",
-            blockedInfo: blockedSectionsInfo,
-          };
+          if (pinnedBlockedCourse) {
+            firstBottleneck = {
+              type: "pinned_section_clash",
+              courseA: pinnedBlockedCourse,
+            };
+          } else {
+            firstBottleneck = {
+              type: "all_sections_blocked_by_lectures",
+              blockedInfo: blockedSectionsInfo,
+            };
+          }
         }
         continue;
       }
 
-      // Step 3: Backtracking search to find all feasible combinations
+      // Step 3: Backtracking search to find all 0-conflict combinations
       const feasibleForCombo = [];
       const currentPicks = {};
       const occupiedCells = new Set();
@@ -330,30 +356,155 @@ const ScheduleOptimizer = {
 
       if (feasibleForCombo.length === 0) {
         if (!firstBottleneck) {
-          firstBottleneck = this.diagnosePairwiseBottlenecks(validSectionsPerCourse, lectureCells);
+          const anyPinned = validSectionsPerCourse.find((v) => v.isPinned);
+          if (anyPinned) {
+            firstBottleneck = {
+              type: "pinned_section_clash",
+              courseA: anyPinned.course,
+            };
+          } else {
+            firstBottleneck = this.diagnosePairwiseBottlenecks(validSectionsPerCourse, lectureCells);
+          }
         }
       } else {
         allFeasibleSolutions.push(...feasibleForCombo);
       }
     }
 
-    if (allFeasibleSolutions.length === 0) {
+    // If 0-conflict solutions exist, evaluate and return them immediately!
+    if (allFeasibleSolutions.length > 0) {
+      const evaluatedSolutions = allFeasibleSolutions.map((solObj) =>
+        this.evaluateSolution(solObj.picks, selectedCourseIndices, solObj.lecturePicks)
+      );
+
       return {
-        feasible: false,
-        bottleneck: firstBottleneck || {
-          type: "complex_multi_clash",
-          message: "No schedule exists without overlapping sections.",
-        },
+        feasible: true,
+        hasConflicts: false,
+        minConflicts: 0,
+        count: evaluatedSolutions.length,
+        solutions: evaluatedSolutions,
       };
     }
 
-    // Step 4: Evaluate and score all feasible solutions
-    const evaluatedSolutions = allFeasibleSolutions.map((solObj) =>
+    // Tier 2: If 0-conflict is impossible AND Conflict Waiver Mode is enabled, find Minimum-Conflict solutions!
+    if (allowConflicts) {
+      const relaxedResult = this.solveWithMinConflicts(courses, lectureGroupAssignments, selectedCourseIndices);
+      if (relaxedResult && relaxedResult.solutions && relaxedResult.solutions.length > 0) {
+        return relaxedResult;
+      }
+    }
+
+    return {
+      feasible: false,
+      bottleneck: firstBottleneck || {
+        type: "complex_multi_clash",
+        message: "No schedule exists without overlapping sections.",
+      },
+    };
+  },
+
+  /* Tier 2 Minimum-Conflict Solver (Branch & Bound CSP Relaxation) */
+  solveWithMinConflicts(courses, lectureGroupAssignments, selectedCourseIndices) {
+    let bestConflictCount = Infinity;
+    let bestComboSolutions = [];
+    const MAX_SOLUTIONS_PER_TIER = 600;
+
+    for (const lecGroupMap of lectureGroupAssignments) {
+      // Count base lecture-lecture conflicts for this lecture group combo
+      const cellCounts = new Map(); // "day:slot" -> count of placements
+      let baseConflicts = 0;
+
+      for (const { idx, course, sched } of courses) {
+        const activeLecGroup = lecGroupMap[idx] || sched.activeGroup || "A";
+        const lectures = (sched.isSeniorFlex && course.hasGroups && course.groups)
+          ? ((course.groups[activeLecGroup] || course.groups.A).lectures || [])
+          : (sched.lectures || []);
+
+        lectures.forEach((lec) => {
+          const lastSlot = lec.slots[1] ?? lec.slots[0];
+          for (let s = lec.slots[0]; s <= lastSlot; s++) {
+            const key = `${lec.day}:${s}`;
+            const prev = cellCounts.get(key) || 0;
+            if (prev >= 1) baseConflicts++;
+            cellCounts.set(key, prev + 1);
+          }
+        });
+      }
+
+      // Prune entire lecture group combo if its base lecture clashes already exceed bestConflictCount
+      if (baseConflicts > bestConflictCount) continue;
+
+      // Prepare candidate sections per course (respecting pinnedSections)
+      const coursesWithSections = [];
+      for (const { idx, course, sched, isPinned, pinnedSecIdx } of courses) {
+        if (!sched.sections || sched.sections.length === 0) continue;
+        const candidates = [];
+        sched.sections.forEach((sec, secIdx) => {
+          if (isPinned && secIdx !== pinnedSecIdx) return;
+          const key = `${sec.day}:${sec.slot}`;
+          const lecOverlap = (cellCounts.get(key) || 0) > 0 ? 1 : 0;
+          candidates.push({ secIdx, section: sec, key, lecOverlap });
+        });
+        // Order candidates that don't clash with lectures first so we find low-conflict bounds immediately
+        candidates.sort((a, b) => a.lecOverlap - b.lecOverlap);
+        coursesWithSections.push({ courseIdx: idx, candidates });
+      }
+
+      const currentPicks = {};
+
+      const searchRelaxed = (pos, runningConflicts) => {
+        if (runningConflicts > bestConflictCount) return;
+
+        if (pos >= coursesWithSections.length) {
+          if (runningConflicts < bestConflictCount) {
+            bestConflictCount = runningConflicts;
+            bestComboSolutions = [{
+              picks: { ...currentPicks },
+              lecturePicks: { ...lecGroupMap },
+            }];
+          } else if (runningConflicts === bestConflictCount && bestComboSolutions.length < MAX_SOLUTIONS_PER_TIER) {
+            bestComboSolutions.push({
+              picks: { ...currentPicks },
+              lecturePicks: { ...lecGroupMap },
+            });
+          }
+          return;
+        }
+
+        const { courseIdx, candidates } = coursesWithSections[pos];
+        for (const { secIdx, key } of candidates) {
+          const prevCount = cellCounts.get(key) || 0;
+          const addedConflict = prevCount >= 1 ? 1 : 0;
+          const nextConflicts = runningConflicts + addedConflict;
+
+          if (nextConflicts <= bestConflictCount) {
+            currentPicks[courseIdx] = secIdx;
+            cellCounts.set(key, prevCount + 1);
+
+            searchRelaxed(pos + 1, nextConflicts);
+
+            delete currentPicks[courseIdx];
+            if (prevCount === 0) cellCounts.delete(key);
+            else cellCounts.set(key, prevCount);
+          }
+        }
+      };
+
+      searchRelaxed(0, baseConflicts);
+    }
+
+    if (!bestComboSolutions.length || !Number.isFinite(bestConflictCount)) {
+      return null;
+    }
+
+    const evaluatedSolutions = bestComboSolutions.map((solObj) =>
       this.evaluateSolution(solObj.picks, selectedCourseIndices, solObj.lecturePicks)
     );
 
     return {
       feasible: true,
+      hasConflicts: bestConflictCount > 0,
+      minConflicts: bestConflictCount,
       count: evaluatedSolutions.length,
       solutions: evaluatedSolutions,
     };
@@ -398,13 +549,21 @@ const ScheduleOptimizer = {
     };
   },
 
-  /* Evaluates a single feasible solution against all metrics (honoring Attendance Preferences) */
+  /* Evaluates a single feasible solution against all metrics (honoring Attendance Preferences & Conflict Penalties) */
   evaluateSolution(picks, selectedCourseIndices, lecturePicks = {}) {
     const st = typeof state !== "undefined" ? state : null;
 
-    // Collect all schedule events grouped by day
+    // Collect all schedule events grouped by day and cell
     const scheduleByDay = {
       sat: [], sun: [], mon: [], tue: [], wed: [], thu: [],
+    };
+    const cellsMap = new Map(); // "day:slot" -> [event, ...]
+
+    const registerEvent = (ev) => {
+      scheduleByDay[ev.day].push(ev);
+      const key = `${ev.day}:${ev.slot}`;
+      if (!cellsMap.has(key)) cellsMap.set(key, []);
+      cellsMap.get(key).push(ev);
     };
 
     // Add lectures and chosen sections along with their attendance preference
@@ -426,7 +585,7 @@ const ScheduleOptimizer = {
       lectures.forEach((lec) => {
         const lastSlot = lec.slots[1] ?? lec.slots[0];
         for (let s = lec.slots[0]; s <= lastSlot; s++) {
-          scheduleByDay[lec.day].push({
+          registerEvent({
             kind: "lecture",
             courseIdx: cIdx,
             course,
@@ -442,7 +601,7 @@ const ScheduleOptimizer = {
       const secIdx = picks[cIdx];
       if (secIdx != null && sched.sections[secIdx]) {
         const sec = sched.sections[secIdx];
-        scheduleByDay[sec.day].push({
+        registerEvent({
           kind: "section",
           courseIdx: cIdx,
           course,
@@ -454,6 +613,31 @@ const ScheduleOptimizer = {
         });
       }
     });
+
+    // Compute conflict count & attendance-weighted conflict penalty
+    let conflictCount = 0;
+    let conflictPenalty = 0;
+    const conflictDetails = [];
+
+    for (const [key, items] of cellsMap.entries()) {
+      if (items.length > 1) {
+        const overlaps = items.length - 1;
+        conflictCount += overlaps;
+
+        // Attendance weighting: if at least one overlapping item is 'skip', much lower penalty; if 'rare', medium; if all 'mandatory', high
+        const hasSkip = items.some((it) => it.attendance === "skip");
+        const hasRare = items.some((it) => it.attendance === "rare");
+        const weight = hasSkip ? 1 : hasRare ? 3 : 10;
+        conflictPenalty += overlaps * weight;
+
+        const [day, slot] = key.split(":");
+        conflictDetails.push({
+          day,
+          slot: Number(slot),
+          items,
+        });
+      }
+    }
 
     let mandatoryActiveDays = 0;
     let rareOnlyDays = 0;
@@ -544,6 +728,9 @@ const ScheduleOptimizer = {
     return {
       picks,
       lecturePicks,
+      conflictCount,
+      conflictPenalty,
+      conflictDetails,
       activeDays: activeDaysCount,
       mandatoryActiveDays,
       rareOnlyDays,
@@ -562,33 +749,36 @@ const ScheduleOptimizer = {
 
   /* Scores a solution for a specific scenario (lower score = better, except worst_case) */
   scoreSolution(sol, scenarioId) {
+    // Conflict penalty is always prioritized in normal scenarios so conflicts fall on 'skip'/'rare' classes first
+    const clashBias = (sol.conflictCount || 0) * 5000 + (sol.conflictPenalty || 0) * 350;
+
     switch (scenarioId) {
       case "min_walking":
         // Prioritize minimum transit cost and eliminate tight transits between distant buildings
-        return (sol.totalTransitCost * 12) + (sol.tightTransitsCount * 120) + (sol.totalGapSlots * 2);
+        return clashBias + (sol.totalTransitCost * 12) + (sol.tightTransitsCount * 120) + (sol.totalGapSlots * 2);
 
       case "compact":
         // Prioritize minimum idle gaps, then minimum attended days
-        return (sol.totalGapSlots * 25) + (sol.totalAttendedDays * 6) + (sol.totalTransitCost * 0.4);
+        return clashBias + (sol.totalGapSlots * 25) + (sol.totalAttendedDays * 6) + (sol.totalTransitCost * 0.4);
 
       case "max_free_days":
         // Prioritize fewest mandatory attendance days first; days with only 'rare' classes have much lower penalty
-        return (sol.mandatoryActiveDays * 150) + (sol.rareOnlyDays * 30) + (sol.totalGapSlots * 8) + (sol.totalTransitCost * 0.3);
+        return clashBias + (sol.mandatoryActiveDays * 150) + (sol.rareOnlyDays * 30) + (sol.totalGapSlots * 8) + (sol.totalTransitCost * 0.3);
 
       case "early_bird":
         // Penalize late slots heavily (5, 6, 7)
-        return (sol.lateSlotsCount * 50) + (sol.totalGapSlots * 6) + (sol.totalTransitCost * 0.5);
+        return clashBias + (sol.lateSlotsCount * 50) + (sol.totalGapSlots * 6) + (sol.totalTransitCost * 0.5);
 
       case "late_starter":
         // Penalize slot 1 (8 AM) and slot 2 (9:30 AM)
-        return (sol.morningSlotsCount * 80) + (sol.slot2Count * 25) + (sol.totalGapSlots * 5);
+        return clashBias + (sol.morningSlotsCount * 80) + (sol.slot2Count * 25) + (sol.totalGapSlots * 5);
 
       case "worst_case":
         // Invert: higher stress is "selected" as the worst case
         return (sol.totalTransitCost * 8) + (sol.totalGapSlots * 20) + (sol.totalAttendedDays * 35) + (sol.tightTransitsCount * 80);
 
       default:
-        return sol.totalGapSlots + sol.activeDays;
+        return clashBias + sol.totalGapSlots + sol.activeDays;
     }
   },
 
@@ -609,6 +799,8 @@ const ScheduleOptimizer = {
     const best = solutions[0];
     return {
       feasible: true,
+      hasConflicts: Boolean(res.hasConflicts),
+      minConflicts: res.minConflicts || 0,
       totalSolutions: solutions.length,
       scenarioId,
       scenario: this.SCENARIOS.find((s) => s.id === scenarioId),
@@ -637,6 +829,8 @@ const ScheduleOptimizer = {
 
     return {
       feasible: true,
+      hasConflicts: Boolean(res.hasConflicts),
+      minConflicts: res.minConflicts || 0,
       totalSolutions: solutions.length,
       comparison,
     };

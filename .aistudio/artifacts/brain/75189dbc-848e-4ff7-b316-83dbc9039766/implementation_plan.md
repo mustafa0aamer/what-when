@@ -1,101 +1,99 @@
-# Logical Fixes, Grid Attendance Indicators & Phase 4 Smart Optimizer Integration
+# وضع السماح بالتعارض + تثبيت السكاشن + تطوير تصميم الجدول والـ PNG
 
-This plan resolves the five logical edge cases identified during the system audit, adds visual attendance status indicators directly to the timetable grid cells, and upgrades the Operations Research Smart Optimizer to factor student attendance preferences into scenario evaluations without permitting timetable clashes.
+تحديث شامل يضم ثلاث إضافات متكاملة:
+1. **وضع السماح بالتعارض (Conflict Waiver Mode)**: منع التعارض افتراضياً مع إمكانية فتحه على مسؤولية الطالب وحساب أفضل الجداول بأقل تعارض ممكن.
+2. **ميزة تثبيت السكاشن (Section Pinning)**: تثبيت سكشن معين من قائمة السكاشن أو من داخل الجدول مباشرة ليلتزم به المخطط الذكي أثناء ترتيب باقي المواد.
+3. **تطوير تصميم الجدول الأسبوعي وصورة الـ PNG**: تحسين الوضوح البصري، تباين الألوان، وتنظيم تفاصيل المحاضرات والسكاشن لراحة العين في العرض والتصدير.
+
+---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> All four product decisions have been confirmed and incorporated into this plan:
+> تمت مراجعة وتحديث الخطة لتشمل جميع طلباتك ومقترحاتك الإضافية في دورة تنفيذ واحدة مترابطة.
 
-- **Confirmed Scope**: Fix all 5 audited logical bugs and connect the Phase 4 Smart Optimizer to the Attendance Preferences state in a single cohesive update.
-- **Confirmed "Rarely Attend" (`هحضر بشكل نادر`) Behavior**: Treated identically to **Mandatory** (`حضور إلزامي`) across all optimization metrics (walking distance, idle gaps, early morning, and late afternoon slots), **except** in the **Maximum Days Off (`max_free_days`)** scenario, where days containing only `Rarely Attend` classes do not count as full mandatory campus days.
-- **Confirmed Timetable Grid Visuals**: Lectures and sections marked as **Will Not Attend** or **Rarely Attend** display a subtle status tag and slightly dimmed visual treatment on the timetable grid while keeping hard/soft conflict rules strictly enforced.
-- **Confirmed Roadmap Sequencing**: The separate **Conflict Waiver (`فتح التعارض`)** feature remains scheduled for the next milestone immediately following this update.
+- **وضع السماح بالتعارض**:
+  - متاح في **الإعدادات الرئيسية** (مع تحذير رسمي)، و**زر سريع في شريط الملخص**، وداخل **المخطط الذكي**.
+  - **مغلق افتراضياً**: يمنع اختيار أي مادة أو سكشن متعارض مع المواد المسجلة حالياً.
+  - **عند التفعيل**: يسمح بتسجيل المحاضرات والسكاشن المتعارضة، ويبحث المخطط الذكي عن جدول بـ **0 تعارض** أولاً، وإلا يختار **أقل عدد ممكن من التعارضات** (مع تفضيل أن يقع التعارض في حصص «مش هحضر» أو «حضور نادر»).
+- **ميزة تثبيت السكشن (Pin Section)**:
+  - أيقونة تثبيت (**دبوس 📌**) في شريط المادة المسجلة (بجوار زر إزالة المادة) لتثبيت السكشن المختار.
+  - أيقونة تثبيت مصغرة مباشرة داخل **خلية السكشن في الجدول الأسبوعي** للتثبيت أو فك التثبيت بضغطة واحدة من الجدول.
+  - يلتزم المخطط الذكي (Optimizer) بجميع السكاشن المثبتة كقيود ثابتة ويرتب باقي المواد حولها، وإذا تسبب سكشن مثبت في استحالة الحل ينبهك المخطط بالاسم مع زر لفك تثبيته فوراً.
+- **تطوير تصميم الجدول وصورة الـ PNG**:
+  - الحفاظ على الهيكل العام المعتاد (الأيام كصفوف والفترات 1..7 كأعمدة) مع تحسين البطاقات الداخلية، فصل ألوان المحاضرات والسكاشن العادية عن ألوان التعارض، وتصدير صورة PNG عالية الدقة ببطاقات مرسومة بوضوح ومفتاح دلالي (Legend) أنيق.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **What It Does**:
-  1. Eliminates state and UI inconsistencies across course selection, setup re-entry, lecture-only courses, senior retakes, and summary bar badges.
-  2. Visually distinguishes classes the student plans to skip or rarely attend directly inside the timetable grid.
-  3. Upgrades the combinatorial schedule solver so that skipped classes (`مش هحضر`) do not artificially inflate campus walking strain, waiting gaps, or active attendance days, and rarely attended classes (`هحضر بشكل نادر`) allow the **Maximum Days Off** scenario to prioritize eliminating mandatory attendance days.
-- **Target Audience**: Cairo University FCAI students across all 4 academic levels planning their semester timetables.
-- **Key Value**: Produces realistic, personalized optimization recommendations that reflect which classes a student will physically commute to on campus, while preserving 100% clash-free registration integrity.
+- **What It Does**: يمنح الطالب تحكماً كاملاً وذكياً في جدوله الدراسي: حماية تلقائية من التعارض، وضع استثنائي لفتح التعارض عند الحاجة، تثبيت السكاشن المفضلة، وجدول أسبوعي مريح للعين على الشاشة وفي الصورة المصدرة.
+- **Target Audience / Persona**: طلاب الكلية الذين يخططون جدولهم الفصلي ويرغبون في الجمع بين التفضيلات الشخصية (سكشن معين مع أصدقائهم أو مع معيد مفضل) وبين التحسين الآلي لباقي الجدول.
+- **Key Value**: تحويل عملية بناء الجدول من تجربة يدوية مرهقة إلى أداة تخطيط دقيقة تحترم اختيارات الطالب الخاصة وتقدم مخرجات بصرية احترافية.
 
 ---
 
 ## 2. User Experience & Visual Design
 
 - **Key User Flows**:
-  1. **Attendance Configuration Flow**: When opening the Attendance Preferences modal, courses without lab sections (such as `HU111` and `HU113`) only display the **Lecture** preference row—preventing phantom section preferences.
-  2. **Timetable Visual Feedback**: Selecting `مش هحضر` (Will Not Attend) or `هحضر بشكل نادر` (Rarely Attend) updates both the Registered Courses badge and the corresponding cells in the live Timetable Grid with a subtle dashed border, softened opacity (`0.72` for skipped, `0.88` for rare), and a compact status label.
-  3. **Smart Optimizer Execution**: Opening the Smart Optimizer automatically evaluates candidate section combinations using the student's attendance preferences, updating active day counts, idle gap hours, and walking strain metrics in real time.
-  4. **Senior Retake Lecture & Section Optimization**: When a Level 3 or Level 4 student selects a Level 1/2 retake course with Group A and Group B cohorts, the optimizer seamlessly evaluates both Group A and Group B lecture/section possibilities if not manually locked.
-- **Visual Identity & Theme**:
-  - *Aesthetic Direction*: Utilitarian academic precision—high-contrast tabular data grid with clear semantic color coding and zero visual clutter.
-  - *Color Palette & Mood*: Neutral slate canvas (`#f4f6f8`), crisp white structural surfaces (`#ffffff`), deep teal primary actions (`#0f766e`), muted slate dashed treatment for skipped slots, and warm amber accents (`#d97706`) for rare attendance indicators.
-  - *Typography & Hierarchy*: **IBM Plex Sans Arabic** for Arabic UI and **Inter** with `tabular-nums` for slot timings, credit counters, and optimization metrics.
-- **Interactive Feedback & Motion**:
-  - Instant state synchronization across the Attendance Modal, Registered Courses list, Timetable Grid, and Smart Optimizer modal.
-  - Non-blocking toast notification instead of native browser alerts if a user attempts to export an empty timetable.
+  1. **تثبيت السكاشن (Section Pinning)**:
+     - في **قائمة المقررات المسجلة**: بجوار زر حذف المادة (`×`)، يظهر زر **تثبيت السكشن (📌)**. عندما يختار الطالب سكشناً ويضغط تثبيت، يتحول الزر إلى الحالة النشطة (`مثبت`) مع إطار مميز لقائمة السكشن.
+     - في **الجدول الأسبوعي**: تحتوي كل بطاقة سكشن داخل الجدول على أيقونة دبوس صغيرة في الزاوية العلوية؛ الضغط عليها يثبت السكشن أو يلغي تثبيته فوراً مع إشعار سريع (Toast).
+     - في **المخطط الذكي (Optimizer)**: يظهر شريط معلوماتي يوضح السكاشن المثبتة التي تم احترامها أثناء توليد السيناريوهات الـ 6.
+  2. **إدارة التعارض (Conflict Mode)**:
+     - **الوضع المغلق**: تعطيل الخيارات المتعارضة في الكتالوج وقوائم السكاشن مع توضيح سبب التعارض (`متعارض مع: [اسم المادة]`).
+     - **الوضع المفعّل**: السماح باختيار المواد والسكاشن المتعارضة مع شارة `تعارض مسموح`، وتشغيل المخطط الذكي لإيجاد الحلول الأقل تعارضاً.
+  3. **العرض البصري للجدول وتصدير الـ PNG**:
+     - **على الشاشة**:
+       - تصميم بطاقات الحصص داخل الخلايا بتباين واضح: **المحاضرات** بلون أكاديمي هادئ (تيل/كحلي فاتح مع شريط جانبي)، و**السكاشن** بلون مميز ومريح (أزرق/زمردي هادئ)، مع تخصيص اللون **الأصفر والأحمر** حصرياً لحالات التعارض الفعلي.
+       - إبراز اسم المادة بخط واضح، يليه المكان والدكتور/رقم السكشن كعناصر منظمة سهلة القراءة بنظرة سريعة.
+     - **في صورة الـ PNG المصدرة**:
+       - إصلاح مشكلة تلوين المحاضرات والسكاشن العادية بألوان التحذير/الخطر في الصورة المصدرة؛ بدلاً من ذلك تُرسم كل حصة كبطاقة داخلية أنيقة (Rounded Card) بألوانها الهادئة، ولا يظهر اللون الأحمر/الأصفر إلا عند وجود تعارض فعلي.
+       - تحسين رأس وتذييل الصورة ليضم ملخص الطالب (المستوى، التخصص، الساعات، وحالة التعارض) مع مفتاح ألوان (Legend) واضح في الأسفل.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-- **Decision 1: Strict Separation of Attendance Preferences from Clash Detection**
-  - *Chosen Approach*: Keep all time-slot occupancy constraints 100% strict during solver candidate generation (`solve()`), applying attendance preferences only during objective evaluation (`evaluateSolution()` and `scoreSolution()`).
-  - *Why*: Ensures the optimizer never recommends a schedule with overlapping classes until the dedicated Conflict Waiver feature is explicitly enabled in the next phase.
-- **Decision 2: Differentiated Weighting for "Will Not Attend" vs. "Rarely Attend"**
-  - *Chosen Approach*:
-    - **Will Not Attend (`skip`)**: Excluded from physical campus presence on that slot—zero walking transit cost to/from the class, zero idle gap creation, zero 8:00 AM / late afternoon penalty, and does not count as an active campus day.
-    - **Rarely Attend (`rare`)**: Included identically to Mandatory classes in walking distance, idle gap, early bird, and late starter calculations so that when the student *does* attend, the slot is convenient and nearby. However, in the **Maximum Days Off (`max_free_days`)** scenario, a day containing only `rare` classes is weighted much lower than a day with `mandatory` classes so the optimizer prioritizes freeing up regular weekly attendance days.
-  - *Why*: Matches real student behavior—a class attended only 2–3 times a term (e.g., for quizzes) still needs a reasonable time/location when attended, but should not prevent a student from getting a regular weekly day off.
-- **Decision 3: State Sanitization Upon Editing Student Info**
-  - *Chosen Approach*: When a returning student edits their Passed Hours or GPA in the Setup view, automatically remove any previously selected courses that are now locked by specialization rules (`< 45` hours) and trim excess courses if total credit hours exceed the newly calculated limit.
-  - *Why*: Prevents impossible states where a student's selected courses exceed their allowed credit limit or include locked upper-level courses.
+- **Decision 1: معاملة السكشن المثبت كقيد صلب (Hard Constraint) في المخطط الذكي**
+  - *Chosen Approach*: عندما يثبت الطالب سكشن مادة معينة، يقوم `ScheduleOptimizer` بقصر خيارات هذه المادة على السكشن المثبت فقط أثناء البحث عن أفضل جدول لباقي المواد.
+  - *Why*: يوفر على الطالب إعادة ضبط السكشن يدوياً بعد كل مرة يستخدم فيها المخطط الذكي، ويضمن أن باقي السكاشن يتم اختيارها لتناسب السكشن المثبت (من حيث المباني والفجوات الزمنية).
+- **Decision 2: فصل دلالات الألوان في الجدول والـ PNG (النوع مقابل الحالة)**
+  - *Chosen Approach*: استخدام التيل/الأزرق للمحاضرات والسكاشن السليمة، قصر الكهرماني والأحمر على الخلايا المتعارضة فقط، مع إضافة حدود منقطة هادئة للحصص المحددة كـ «مش هحضر».
+  - *Why*: يمنع التشتت البصري ويجعل عين الطالب تلتقط شكل الأسبوع وأماكن الفراغ والتعارض في ثوانٍ.
 
 ---
 
 ## 4. Technical Architecture & Data Strategy *(Technical Reference)*
 
 - **Architecture & Component Diagram**:
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                       Application State Store                           │
-│  selected[] · picks{} · lecturePicks{} · attendance{ idx: {lec, sec} }  │
-└───────────────┬─────────────────────────┬───────────────────────────────┘
-                │                         │
-                ▼                         ▼
-┌───────────────────────────────┐ ┌───────────────────────────────────────┐
-│   Timetable & Grid Builder    │ │     Operations Research Optimizer     │
-│ ───────────────────────────── │ │ ───────────────────────────────────── │
-│ • Resolves Group A/B cohorts  │ │ • Hard CSP: 100% Clash-Free Slots     │
-│ • Attaches attendance status  │ │ • Senior Retake Lecture Group Flex    │
-│ • Flags hard/soft conflicts   │ │ • Filters 'skip' from physical stats  │
-│ • Renders dimmed/tagged cells │ │ • Distinguishes 'rare' in Free Days   │
-└───────────────┬───────────────┘ └───────────────────┬───────────────────┘
-                │                                     │
-                ▼                                     ▼
-┌───────────────────────────────┐ ┌───────────────────────────────────────┐
-│   Registered & Grid Views     │ │     Scenario Comparison & Apply       │
-│ • Hides section row if 0 labs │ │ • Updates picks{} & lecturePicks{}    │
-│ • Unifies course removal      │ │ • Displays physical attendance stats  │
-└───────────────────────────────┘ └───────────────────────────────────────┘
+│                       Application State (localStorage)                  │
+│  allowConflicts (bool) · pinnedSections { [courseIdx]: bool } · picks   │
+└──────────────┬──────────────────────────┬───────────────────────────────┘
+               │                          │
+               ▼                          ▼
+┌──────────────────────────────┐ ┌────────────────────────────────────────┐
+│   Conflict & Pinning Engine  │ │       Smart Optimizer (CSP + COP)      │
+│  • Real-time clash detection │ │  • Locks pinnedSections[idx]           │
+│  • Locks clashing options    │ │  • Tier 1: 0-Conflict Solutions        │
+│    when allowConflicts=false │ │  • Tier 2: Min-Conflict Fallback       │
+│  • Toggles pin from Card/Grid│ │    (weighted by Skip/Rare attendance)  │
+└──────────────┬───────────────┘ └────────────────────┬───────────────────┘
+               │                                      │
+               ▼                                      ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                  Enhanced Timetable UI & 2x Canvas PNG                  │
+│  • Semantic cell cards (Lecture vs Section vs Conflict vs Pinned)       │
+│  • Inline Pin button on Section cards & Registered Course headers       │
+│  • Upgraded Canvas Renderer with card-style blocks & summary header     │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **Data Model & State**:
-  - `state.attendance[courseIdx]`: `{ lecture: 'mandatory' | 'skip' | 'rare', section: 'mandatory' | 'skip' | 'rare' }`.
-  - Placement objects in `Timetable.build(state)` gain an `attendance: 'mandatory' | 'skip' | 'rare'` property derived from `state.attendance[courseIdx]`.
+  - `state.allowConflicts`: `boolean` (افتراضياً `false`).
+  - `state.pinnedSections`: كائن `{ [courseIdx]: boolean }` يحفظ حالة تثبيت السكشن لكل مادة؛ يُمسح تلقائياً عند حذف المادة أو تغيير الطالب للسكشن إلى `بدون اختيار`.
 - **Interactive Component & State Mapping**:
-  1. **Setup Form Submission (`bindSetup`)**: Validates returning student course selections against the new `isSpecialized` flag and `hoursLimit`, pruning disallowed or over-limit courses and cleaning up associated `picks`, `lecturePicks`, and `attendance` keys.
-  2. **Catalog & Registered Course Removal**: Both unchecking `.course-check` and clicking `.reg-remove` invoke a unified cleanup routine that deletes `picks[idx]`, `lecturePicks[idx]`, and `attendance[idx]`.
-  3. **Summary Bar Group Badge**: Renders the Cohort Group badge (`المجموعة A/B`) only when `state.isNewcomer || state.level <= 2`.
-  4. **Attendance Modal (`renderAttendanceModal` & `countCustomAttendance`)**: Checks `sched.sections.length > 0` before rendering the section preference row or counting `att.section` toward the active custom preferences badge.
-  5. **Timetable Grid & Canvas Export**: Applies `.tt-block--skip` and `.tt-block--rare` classes with a compact attendance label on screen and in exported PNG timetables.
-  6. **Smart Optimizer (`ScheduleOptimizer`)**:
-     - For Senior students (`level >= 3`) taking a course with `hasGroups: true`, evaluates valid lecture-group options (`A` or `B`) alongside sections, and persists the optimal `lecturePicks` when applied.
-     - Filters out `skip` events when computing physical campus days, walking strain, idle gaps, and morning/late slot counts.
-     - Tracks `mandatoryActiveDays` vs. `rareOnlyDays` so the `max_free_days` scenario prioritizes minimizing mandatory attendance days first.
+  - زر التثبيت (`data-pin-course`) يعمل من مكانين: شريط المادة المسجلة، وبطاقة السكشن داخل الجدول الأسبوعي.
+  - عند الضغط على تطبيق سيناريو من المخطط الذكي، تظل جميع السكاشن المثبتة كما هي بينما تتحدث باقي السكاشن وفق السيناريو المختار.

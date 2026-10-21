@@ -54,10 +54,12 @@ const state = {
   dept: persisted.dept || null,             // 'CS' | 'IT' | 'IS' | 'DS' | 'AI' | 'GEN'
   project: persisted.project ?? false,      // only allowed if passedHours >= 85
   extraHours: persisted.extraHours ?? false,// only allowed if canOverload
+  allowConflicts: persisted.allowConflicts ?? false, // Conflict Waiver Mode (فتح التعارض)
   maxCourses: persisted.maxCourses || 0,
   hoursLimit: persisted.hoursLimit || 0,
   selected: persisted.selected || [],       // array of course indexes
   picks: persisted.picks || {},             // courseIndex -> sectionIndex
+  pinnedSections: persisted.pinnedSections || {}, // courseIndex -> boolean
   attendance: persisted.attendance || {},   // courseIndex -> { lecture: 'mandatory'|'skip'|'rare', section: 'mandatory'|'skip'|'rare' }
   catalogView: persisted.catalogView || "grid",   // 'grid' | 'list'
   catalogLevelFilter: persisted.catalogLevelFilter || "all", // 'all' | 1 | 2 | 3 | 4 | 'retake'
@@ -285,9 +287,29 @@ function countCustomAttendance() {
   return count;
 }
 
+function countPinnedSections() {
+  if (!state.pinnedSections) return 0;
+  let count = 0;
+  state.selected.forEach((idx) => {
+    if (state.pinnedSections[idx] && state.picks && state.picks[idx] != null) {
+      count++;
+    }
+  });
+  return count;
+}
+
+function formatCourseShortList(courses) {
+  if (!courses || !courses.length) return "";
+  const sep = state.lang === "ar" ? "، " : ", ";
+  return courses.map((c) => {
+    const name = tr(c.name);
+    return c.code ? `${c.code} (${name})` : name;
+  }).join(sep);
+}
+
 function pruneOrphanedCourseState() {
   const selSet = new Set(state.selected);
-  [state.picks, state.lecturePicks, state.attendance].forEach((mapObj) => {
+  [state.picks, state.lecturePicks, state.attendance, state.pinnedSections].forEach((mapObj) => {
     if (!mapObj) return;
     Object.keys(mapObj).forEach((k) => {
       if (!selSet.has(Number(k))) {
@@ -295,6 +317,82 @@ function pruneOrphanedCourseState() {
       }
     });
   });
+  if (state.pinnedSections) {
+    Object.keys(state.pinnedSections).forEach((k) => {
+      if (!state.picks || state.picks[k] == null) {
+        delete state.pinnedSections[k];
+      }
+    });
+  }
+}
+
+/* Cleans up any active schedule overlaps when disabling Conflict Waiver Mode */
+function sanitizeConflictsWhenLocking() {
+  let cleaned = false;
+  let model = Timetable.build(state);
+  if (!model.conflicts.length) return false;
+
+  // Step 1: Unpick any section involved in a conflict
+  model.conflicts.forEach((c) => {
+    c.items.forEach((p) => {
+      if (p.kind === "section" && state.picks[p.courseIdx] != null) {
+        delete state.picks[p.courseIdx];
+        if (state.pinnedSections) delete state.pinnedSections[p.courseIdx];
+        cleaned = true;
+      }
+    });
+  });
+
+  // Step 2: Re-check for lecture-lecture conflicts and remove the later-added clashing course
+  model = Timetable.build(state);
+  while (model.conflicts.length > 0) {
+    const firstConflict = model.conflicts[0];
+    const lastItem = firstConflict.items[firstConflict.items.length - 1];
+    if (!lastItem) break;
+    state.selected = state.selected.filter((idx) => idx !== lastItem.courseIdx);
+    cleaned = true;
+    pruneOrphanedCourseState();
+    model = Timetable.build(state);
+  }
+
+  return cleaned;
+}
+
+function toggleConflictMode(forceValue = null) {
+  const nextVal = forceValue != null ? Boolean(forceValue) : !state.allowConflicts;
+  state.allowConflicts = nextVal;
+  let cleaned = false;
+  if (!nextVal) {
+    cleaned = sanitizeConflictsWhenLocking();
+  }
+  persist();
+  renderAll();
+  if (nextVal) {
+    showToast(t("toastConflictModeEnabled"));
+  } else {
+    showToast(cleaned ? t("toastConflictModeDisabledCleaned") : t("toastConflictModeDisabled"));
+  }
+}
+
+function togglePinSection(courseIdx) {
+  const idx = Number(courseIdx);
+  const course = COURSES[idx];
+  if (!course) return;
+  if (!state.picks || state.picks[idx] == null) {
+    showToast(t("pinNeedSectionToast"));
+    return;
+  }
+  state.pinnedSections = state.pinnedSections || {};
+  const isNowPinned = !state.pinnedSections[idx];
+  if (isNowPinned) {
+    state.pinnedSections[idx] = true;
+  } else {
+    delete state.pinnedSections[idx];
+  }
+  persist();
+  renderAll();
+  const cName = tr(course.name);
+  showToast((isNowPinned ? t("pinSuccessToast") : t("unpinSuccessToast")).replace("{course}", cName));
 }
 
 function computeLimit() {
@@ -416,6 +514,8 @@ const ICONS = {
   userGraduate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/></svg>',
   users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   userCheck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1 1 1 0 0 1 1 1z"/></svg>',
+  shieldAlert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
 };
 
 /* -------------------------------------------------------------- Chrome */
@@ -643,6 +743,22 @@ function renderSetup() {
         </label>
       </div>
 
+      <div class="conflict-mode-setup-box ${state.allowConflicts ? "is-active" : ""}" id="conflictModeBox">
+        <label class="choice choice-block">
+          <input type="checkbox" id="allowConflictsCheck" ${checked(state.allowConflicts)}>
+          <span class="conflict-mode-icon">${ICONS.shieldAlert}</span>
+          <strong>${esc(t("conflictModeLabel"))}</strong>
+          ${helpTip(t("conflictModeSub"))}
+        </label>
+        <div class="conflict-mode-warning" id="conflictWarningBanner" ${state.allowConflicts ? "" : 'style="display:none;"'}>
+          <div class="conflict-warning-head">
+            ${ICONS.alert}
+            <strong>${esc(t("conflictModeWarningTitle"))}</strong>
+          </div>
+          <p class="conflict-warning-text">${esc(t("conflictModeWarningBody"))}</p>
+        </div>
+      </div>
+
       <button class="btn btn-primary btn-block" type="submit">${esc(t("startBtn"))}</button>
     </form>
   </section>`;
@@ -663,6 +779,17 @@ function bindSetup() {
   const extraHoursCheck = $("#extraHours");
   const overloadReasonTip = $("#overloadReasonTip");
   const returningInputs = $("#returningStudentInputs");
+  const conflictModeBox = $("#conflictModeBox");
+  const allowConflictsCheck = $("#allowConflictsCheck");
+  const conflictWarningBanner = $("#conflictWarningBanner");
+
+  if (allowConflictsCheck) {
+    allowConflictsCheck.addEventListener("change", () => {
+      const isOn = allowConflictsCheck.checked;
+      if (conflictModeBox) conflictModeBox.classList.toggle("is-active", isOn);
+      if (conflictWarningBanner) conflictWarningBanner.style.display = isOn ? "" : "none";
+    });
+  }
 
   const calcLevelBadge = $("#calcLevelBadge");
   const calcSpecBadge = $("#calcSpecBadge");
@@ -795,6 +922,7 @@ function bindSetup() {
     e.preventDefault();
     const isNewcomer = form.querySelector('input[name="studentType"]:checked')?.value === "newcomer";
     state.isNewcomer = isNewcomer;
+    state.allowConflicts = Boolean(allowConflictsCheck?.checked);
 
     if (isNewcomer) {
       const prevCount = state.selected.length;
@@ -817,6 +945,9 @@ function bindSetup() {
       });
       while (usedHours() > state.hoursLimit && state.selected.length > 0) {
         state.selected.pop();
+      }
+      if (!state.allowConflicts) {
+        sanitizeConflictsWhenLocking();
       }
       pruneOrphanedCourseState();
       state.step = "catalog";
@@ -893,6 +1024,9 @@ function bindSetup() {
     while (usedHours() > state.hoursLimit && state.selected.length > 0) {
       state.selected.pop();
     }
+    if (!state.allowConflicts) {
+      sanitizeConflictsWhenLocking();
+    }
     pruneOrphanedCourseState();
 
     state.step = "catalog";
@@ -948,12 +1082,23 @@ function renderCourseCard(course, idx) {
   const isMandatory = course.mandatoryFor && course.mandatoryFor.includes(state.dept);
   const pick = state.picks[idx] ?? null;
   const canAdd = canAddCourse(idx);
-  const disabled = !isSelected && !canAdd;
+  const clashInfo = typeof Timetable !== "undefined" && Timetable.getCourseConflictWithState
+    ? Timetable.getCourseConflictWithState(idx, state)
+    : { hasConflict: false, conflictingCourses: [] };
+
+  const creditDisabled = !isSelected && !canAdd;
+  const conflictLocked = !isSelected && clashInfo.hasConflict && !state.allowConflicts;
+  const disabled = creditDisabled;
+
   const cost = course && typeof course.creditHours === "number" ? course.creditHours : 3;
   const rem = Math.max(0, state.hoursLimit - usedHours());
-  const disabledTooltip = disabled
+  const clashNames = formatCourseShortList(clashInfo.conflictingCourses);
+
+  const disabledTooltip = creditDisabled
     ? t("limitReachedRemaining").replace("{rem}", rem).replace("{cost}", cost).replace("{limit}", state.hoursLimit)
-    : "";
+    : conflictLocked
+      ? t("toastConflictLockedCourse").replace("{courses}", clashNames)
+      : "";
 
   const badges = [];
   if (isMandatory) {
@@ -970,6 +1115,14 @@ function renderCourseCard(course, idx) {
   }
   badges.push(`<span class="badge badge-credit">${esc(formatCreditBadge(course))}</span>`);
 
+  if (clashInfo.hasConflict) {
+    if (!state.allowConflicts && !isSelected) {
+      badges.push(`<span class="badge badge-conflict-lock">${ICONS.alert}<span>${esc(t("courseClashesWith").replace("{courses}", clashNames))}</span></span>`);
+    } else {
+      badges.push(`<span class="badge badge-conflict-waived">${ICONS.alert}<span>${esc(t("courseClashAllowedWith").replace("{courses}", clashNames))}</span></span>`);
+    }
+  }
+
   const meta = [
     course.code ? `<span class="course-code">${esc(course.code)}</span>` : "",
     ...badges,
@@ -985,8 +1138,8 @@ function renderCourseCard(course, idx) {
     ${isSelected && pick != null && sched.sections[pick] ? `<span class="course-count course-count--picked">${ICONS.check}${esc(Timetable.sectionLabel(sched.sections[pick]))}</span>` : ""}`;
 
   return `
-  <div class="course-card ${isSelected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}">
-    <label class="course-check-row" ${disabled ? `title="${esc(disabledTooltip)}"` : ""}>
+  <div class="course-card ${isSelected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""} ${conflictLocked ? "is-conflict-locked" : ""}">
+    <label class="course-check-row" ${disabledTooltip ? `title="${esc(disabledTooltip)}"` : ""}>
       <input type="checkbox" class="course-check" data-idx="${idx}" ${isSelected ? "checked" : ""} ${disabled ? "disabled" : ""}>
       <div class="course-body">
         <div class="course-top">
@@ -1065,65 +1218,93 @@ function renderRegisteredList(model) {
       </div>
     </div>` : "";
 
+  const renderSectionOption = (courseIdx, secObj, secIdx, currentPick) => {
+    const secClash = typeof Timetable !== "undefined" && Timetable.getSectionConflictWithState
+      ? Timetable.getSectionConflictWithState(courseIdx, secIdx, state)
+      : { hasConflict: false, conflictingCourses: [] };
+    const isCurrent = currentPick === secIdx;
+    const isLocked = secClash.hasConflict && !state.allowConflicts && !isCurrent;
+    const clashSuffix = secClash.hasConflict
+      ? ` — ${t("sectionClashesWith").replace("{courses}", formatCourseShortList(secClash.conflictingCourses))}`
+      : "";
+    return `<option value="${secIdx}" ${isCurrent ? "selected" : ""} ${isLocked ? "disabled" : ""}>${esc(Timetable.sectionLabel(secObj) + clashSuffix)}</option>`;
+  };
+
   const items = state.selected.map((idx) => {
     const course = COURSES[idx];
     const sched = Timetable.getCourseSchedule(course, idx, state);
     const pick = state.picks[idx] ?? null;
+    const isPinned = Boolean(state.pinnedSections && state.pinnedSections[idx] && pick != null);
     const clash = conflicted.has(idx);
     const mand = course.mandatoryFor && course.mandatoryFor.includes(state.dept);
+    const hasSections = Boolean(sched.sections && sched.sections.length > 0);
 
     let sectionSelectHtml = "";
-    if (sched.sections && sched.sections.length > 0) {
+    if (hasSections) {
       if (sched.isSeniorFlex) {
         const secA = sched.sections.filter((s) => s.group === "A");
         const secB = sched.sections.filter((s) => s.group === "B");
         sectionSelectHtml = `
-          <select class="section-select" data-idx="${idx}">
+          <select class="section-select ${isPinned ? "is-pinned-select" : ""}" data-idx="${idx}">
             <option value="" ${pick == null ? "selected" : ""} disabled>${esc(t("pickSectionPh"))}</option>
             ${secA.length ? `
               <optgroup label="${esc(t("groupA"))}">
-                ${secA.map((s) =>
-                  `<option value="${s.unifiedIdx}" ${pick === s.unifiedIdx ? "selected" : ""}>${esc(Timetable.sectionLabel(s))}</option>`
-                ).join("")}
+                ${secA.map((s) => renderSectionOption(idx, s, s.unifiedIdx, pick)).join("")}
               </optgroup>` : ""}
             ${secB.length ? `
               <optgroup label="${esc(t("groupB"))}">
-                ${secB.map((s) =>
-                  `<option value="${s.unifiedIdx}" ${pick === s.unifiedIdx ? "selected" : ""}>${esc(Timetable.sectionLabel(s))}</option>`
-                ).join("")}
+                ${secB.map((s) => renderSectionOption(idx, s, s.unifiedIdx, pick)).join("")}
               </optgroup>` : ""}
           </select>`;
       } else {
         sectionSelectHtml = `
-          <select class="section-select" data-idx="${idx}">
+          <select class="section-select ${isPinned ? "is-pinned-select" : ""}" data-idx="${idx}">
             <option value="" ${pick == null ? "selected" : ""} disabled>${esc(t("pickSectionPh"))}</option>
-            ${sched.sections.map((s, i) =>
-              `<option value="${i}" ${pick === i ? "selected" : ""}>${esc(Timetable.sectionLabel(s))}</option>`
-            ).join("")}
+            ${sched.sections.map((s, i) => renderSectionOption(idx, s, i, pick)).join("")}
           </select>`;
       }
     } else {
       sectionSelectHtml = `<span class="badge badge-optional" style="margin-inline-end: .5rem;">${esc(t("lectureOnlyWord"))}</span>`;
     }
 
+    let pinButtonHtml = "";
+    if (hasSections) {
+      pinButtonHtml = `
+        <button class="btn-pin-sec ${isPinned ? "is-pinned" : ""} ${pick == null ? "is-unpicked" : ""}"
+                data-pin-course="${idx}" type="button"
+                title="${esc(isPinned ? t("unpinSectionBtn") : t("pinSectionBtn"))}"
+                aria-label="${esc(isPinned ? t("unpinSectionBtn") : t("pinSectionBtn"))}"
+                aria-pressed="${isPinned ? "true" : "false"}">
+          ${ICONS.pin}
+          <span class="btn-pin-label">${esc(isPinned ? t("pinnedBadge") : t("pinSectionBtn"))}</span>
+        </button>`;
+    }
+
     let lectureGroupPicker = "";
     if (sched.hasGroups && sched.isSeniorFlex) {
+      const clashA = Timetable.getLectureGroupConflictWithState(idx, "A", state);
+      const clashB = Timetable.getLectureGroupConflictWithState(idx, "B", state);
+      const titleA = clashA.hasConflict ? t("sectionClashesWith").replace("{courses}", formatCourseShortList(clashA.conflictingCourses)) : t("lectureGroupA");
+      const titleB = clashB.hasConflict ? t("sectionClashesWith").replace("{courses}", formatCourseShortList(clashB.conflictingCourses)) : t("lectureGroupB");
+
       lectureGroupPicker = `
         <div class="lec-group-switch" title="${esc(t("lectureGroupLabel"))}">
           <span class="lec-group-label">${esc(t("lectureGroupLabel"))}:</span>
-          <button type="button" class="btn-lec-grp ${sched.activeGroup === 'A' ? 'is-active' : ''}" data-idx="${idx}" data-lecgroup="A">
-            ${esc(t("groupShortA"))}
+          <button type="button" class="btn-lec-grp ${sched.activeGroup === 'A' ? 'is-active' : ''} ${clashA.hasConflict && sched.activeGroup !== 'A' ? 'is-clashing-grp' : ''}"
+                  data-idx="${idx}" data-lecgroup="A" title="${esc(titleA)}">
+            ${esc(t("groupShortA"))}${clashA.hasConflict && sched.activeGroup !== 'A' ? " ⚠" : ""}
           </button>
-          <button type="button" class="btn-lec-grp ${sched.activeGroup === 'B' ? 'is-active' : ''}" data-idx="${idx}" data-lecgroup="B">
-            ${esc(t("groupShortB"))}
+          <button type="button" class="btn-lec-grp ${sched.activeGroup === 'B' ? 'is-active' : ''} ${clashB.hasConflict && sched.activeGroup !== 'B' ? 'is-clashing-grp' : ''}"
+                  data-idx="${idx}" data-lecgroup="B" title="${esc(titleB)}">
+            ${esc(t("groupShortB"))}${clashB.hasConflict && sched.activeGroup !== 'B' ? " ⚠" : ""}
           </button>
         </div>`;
     }
 
     return `
-    <div class="reg-item ${clash ? "reg-item--clash" : ""}">
+    <div class="reg-item ${clash ? "reg-item--clash" : ""} ${isPinned ? "reg-item--pinned" : ""}">
       <div class="reg-info">
-        ${clash ? `<span class="reg-clashicon" title="${esc(t("conflictSection"))}">${ICONS.alert}</span>` : ""}
+        ${clash ? `<span class="reg-clashicon" title="${esc(state.allowConflicts ? t("ttConflictWaivedBadge") : t("conflictSection"))}">${ICONS.alert}</span>` : ""}
         <span class="reg-name">
           ${course.code ? `<strong class="course-code">${esc(course.code)}</strong>` : ""}
           ${esc(tr(course.name))}
@@ -1131,6 +1312,7 @@ function renderRegisteredList(model) {
         <span class="badge badge-credit">${esc(formatCreditBadge(course))}</span>
         <span class="badge ${mand ? "badge-mandatory" : "badge-optional"}">${esc(mand ? t("mandatoryShort") : t("optionalShort"))}</span>
         ${sched.hasGroups && !sched.isSeniorFlex ? `<span class="badge badge-group">${sched.activeGroup === 'A' ? esc(t("groupShortA")) : esc(t("groupShortB"))}</span>` : ""}
+        ${isPinned ? `<span class="badge badge-pinned-pill">${ICONS.pin}<span>${esc(t("pinnedBadge"))}</span></span>` : ""}
         ${(() => {
           const att = getCourseAttendance(idx);
           const hasSec = sched.sections && sched.sections.length > 0;
@@ -1144,6 +1326,7 @@ function renderRegisteredList(model) {
       <div class="reg-actions">
         ${lectureGroupPicker}
         ${sectionSelectHtml}
+        ${pinButtonHtml}
         <button class="icon-btn reg-remove" data-idx="${idx}" type="button"
                 title="${esc(t("removeCourse"))}" aria-label="${esc(t("removeCourse"))}">${ICONS.x}</button>
       </div>
@@ -1255,13 +1438,17 @@ function renderOptimizerModal() {
     ? ScheduleOptimizer.solve(state.selected)
     : { feasible: false, bottleneck: { type: "complex_multi_clash" } };
 
+  const pinnedCount = countPinnedSections();
   let bodyContent = "";
 
   if (!res.feasible) {
     const bn = res.bottleneck || {};
     let desc = "";
 
-    if (bn.type === "lecture_clash" && bn.clashes && bn.clashes.length > 0) {
+    if (bn.type === "pinned_section_clash" && bn.courseA) {
+      const c1Name = `${bn.courseA.code || ""} ${tr(bn.courseA.name)}`.trim();
+      desc = t("optBottleneckPinned").replace("{c1}", `<strong>${esc(c1Name)}</strong>`);
+    } else if (bn.type === "lecture_clash" && bn.clashes && bn.clashes.length > 0) {
       const c = bn.clashes[0];
       const c1Name = `${c.courses[0].code || ""} ${tr(c.courses[0].name)}`.trim();
       const c2Name = `${c.courses[1].code || ""} ${tr(c.courses[1].name)}`.trim();
@@ -1293,17 +1480,33 @@ function renderOptimizerModal() {
       </div>
       <p class="opt-bn-desc">${esc(t("optBottleneckDesc"))}</p>
       <div class="opt-bn-details">${desc}</div>
-      <div class="opt-apply-actions">
+      <div class="opt-apply-actions opt-bn-actions">
+        ${pinnedCount > 0 ? `
+          <button class="btn btn-outline" id="optUnpinAllRetryBtn" type="button">
+            ${ICONS.pin}<span>${esc(t("optUnpinAllBtn"))}</span>
+          </button>` : ""}
+        ${!state.allowConflicts ? `
+          <button class="btn btn-primary" id="optEnableConflictBtn" type="button">
+            ${ICONS.shieldAlert}<span>${esc(t("optEnableConflictModeBtn"))}</span>
+          </button>` : ""}
         <button class="btn btn-ghost" id="optCloseBtn" type="button">${esc(t("optCloseModal"))}</button>
       </div>
     </div>`;
   } else {
     const customAttCount = countCustomAttendance();
+    const relaxedConflictBanner = res.hasConflicts ? `
+      <div class="opt-conflict-relaxed-banner">
+        ${ICONS.shieldAlert}
+        <span>${esc(t("optConflictRelaxedBanner").replace("{n}", res.minConflicts))}</span>
+      </div>` : "";
+
     const feasibleBanner = `
-    <p class="opt-section-header">
-      ${esc(t("optFeasibleCount").replace("{n}", res.count))}
-      ${customAttCount > 0 ? `<span class="badge badge-attendance-pill" style="margin-inline-start: 0.5rem;">${ICONS.userCheck}<span>${esc(t("optAttendanceActiveNote").replace("{n}", customAttCount))}</span></span>` : ""}
-    </p>`;
+    ${relaxedConflictBanner}
+    <div class="opt-status-pills-row">
+      <span class="opt-feasible-summary">${esc(t("optFeasibleCount").replace("{n}", res.count))}</span>
+      ${pinnedCount > 0 ? `<span class="badge badge-pinned-pill">${ICONS.pin}<span>${esc(t("optPinnedActiveNote").replace("{n}", pinnedCount))}</span></span>` : ""}
+      ${customAttCount > 0 ? `<span class="badge badge-attendance-pill">${ICONS.userCheck}<span>${esc(t("optAttendanceActiveNote").replace("{n}", customAttCount))}</span></span>` : ""}
+    </div>`;
 
     if (optState.tab === "focus") {
       const optResult = ScheduleOptimizer.optimizeForScenario(state.selected, optState.selectedScenario);
@@ -1331,7 +1534,11 @@ function renderOptimizerModal() {
             <span>${esc(tr(optResult.scenario.name))}</span>
             ${helpTip(tr(optResult.scenario.desc))}
           </h3>
-          <span class="badge badge-mandatory">${esc(t("smartScheduleBadge"))}</span>
+          <div class="opt-preview-badges">
+            ${best.conflictCount > 0
+              ? `<span class="badge badge-conflict-waived">${ICONS.alert}<span>${esc(t("optConflictCountBadge").replace("{n}", best.conflictCount))}</span></span>`
+              : `<span class="badge badge-mandatory">${ICONS.check}<span>${esc(t("optConflictZeroBadge"))}</span></span>`}
+          </div>
         </div>
 
         <div class="opt-metrics-grid">
@@ -1380,6 +1587,7 @@ function renderOptimizerModal() {
               <span class="opt-compare-title-icon">${ICONS[scenario.iconKey] || ICONS.target}</span>
               <span>${esc(tr(scenario.name))}</span>
               ${helpTip(tr(scenario.subtitle))}
+              ${best.conflictCount > 0 ? `<span class="badge badge-conflict-waived">${esc(t("optConflictCountBadge").replace("{n}", best.conflictCount))}</span>` : ""}
             </h4>
             <div class="opt-compare-metrics">
               <span class="opt-cmp-metric">${ICONS.calendar} <strong>${best.activeDays}</strong> ${esc(t("metricDaysUnit"))}</span>
@@ -1441,28 +1649,54 @@ function renderGridCell(day, slot, model) {
   const items = model.cells[`${day.key}:${slot.n}`] || [];
   const cellCls = items.some((p) => p.conflict === "lecture") && !items.some((p) => p.kind === "section")
     ? "tt-cell--lecture"
-    : items.some((p) => p.conflict) ? "tt-cell--section" : "";
+    : items.some((p) => p.conflict) ? "tt-cell--section" : (items.length ? "tt-cell--filled" : "");
 
   const body = items.map((p) => {
     const courseName = esc(tr(p.course.name));
     const title = (p.first || p.kind === "section")
-      ? `<strong class="tt-code">${esc(p.course.code || "")}</strong><span class="tt-cname">${courseName}</span>`
-      : `<strong class="tt-code">${esc(p.course.code || "")}</strong><span class="tt-cont">${esc(t("continuation"))}</span>`;
+      ? `${p.course.code ? `<strong class="tt-code">${esc(p.course.code)}</strong>` : ""}<span class="tt-cname">${courseName}</span>`
+      : `${p.course.code ? `<strong class="tt-code">${esc(p.course.code)}</strong>` : ""}<span class="tt-cname">${courseName}</span><span class="tt-cont">(${esc(t("continuation"))})</span>`;
+
     const attCls = p.attendance === "skip" ? "tt-item--att-skip" : p.attendance === "rare" ? "tt-item--att-rare" : "";
+    const pinCls = p.pinned ? "tt-item--pinned" : "";
     const attBadge = p.attendance === "skip"
       ? `<span class="tt-att-tag tt-att-tag--skip">${esc(t("ttBadgeSkip"))}</span>`
       : p.attendance === "rare"
         ? `<span class="tt-att-tag tt-att-tag--rare">${esc(t("ttBadgeRare"))}</span>`
         : "";
+
+    const kindLabel = p.kind === "lecture"
+      ? esc(t("lectureWord")) + (p.group ? ` (${esc(p.group)})` : "")
+      : `${esc(t("sectionWord"))} ${p.labels ? esc(p.labels.join(", ")) : ""}`;
+
+    const pinBtn = p.kind === "section" ? `
+      <button type="button" class="tt-pin-btn ${p.pinned ? "is-pinned" : ""}"
+              data-pin-course="${p.courseIdx}"
+              title="${esc(p.pinned ? t("unpinSectionBtn") : t("pinSectionBtn"))}"
+              aria-label="${esc(p.pinned ? t("unpinSectionBtn") : t("pinSectionBtn"))}">
+        ${ICONS.pin}
+      </button>` : "";
+
+    const clashTag = p.conflict ? `
+      <span class="tt-clash" title="${esc(state.allowConflicts ? t("ttConflictWaivedBadge") : t("conflictSection"))}">
+        ${ICONS.alert}
+        ${state.allowConflicts ? `<span class="tt-clash-text">${esc(t("ttConflictWaivedBadge"))}</span>` : ""}
+      </span>` : "";
+
     return `
-    <div class="tt-item tt-item--${p.kind} ${attCls} ${p.conflict ? "tt-item--clash-" + p.conflict : ""}">
+    <div class="tt-item tt-item--${p.kind} ${pinCls} ${attCls} ${p.conflict ? "tt-item--clash-" + p.conflict : ""}">
       <div class="tt-item-top">
-        <span class="tt-kind">${p.kind === "lecture" ? esc(t("lectureWord")) : esc(t("sectionWord"))}</span>
-        ${attBadge}
-        ${p.conflict ? `<span class="tt-clash">${ICONS.alert}</span>` : ""}
+        <span class="tt-kind tt-kind--${p.kind}">${kindLabel}</span>
+        <div class="tt-item-top-end">
+          ${attBadge}
+          ${clashTag}
+          ${pinBtn}
+        </div>
       </div>
       <div class="tt-item-title">${title}</div>
-      <div class="tt-item-sub">${esc(p.place)}${p.doctor ? " · " + esc(p.doctor) : ""}${p.labels ? " · " + esc(p.labels.join(", ")) : ""}</div>
+      <div class="tt-item-sub">
+        <span class="tt-place">${esc(p.place)}</span>${p.doctor ? `<span class="tt-sep">·</span><span class="tt-doc">${esc(p.doctor)}</span>` : ""}
+      </div>
     </div>`;
   }).join("");
 
@@ -1487,16 +1721,18 @@ function renderConflict(c) {
     </li>`;
   }).join("");
 
-  const hint = c.type === "lecture"
-    ? t("hintLectureHard")
-    : t("hintSectionFix") + (c.items.some((p) => !p.course.mandatoryFor.includes(state.dept))
-        ? " " + t("hintOptionalSwap") : "");
+  const hint = state.allowConflicts
+    ? t("conflictModeWarningBody")
+    : (c.type === "lecture"
+        ? t("hintLectureHard")
+        : t("hintSectionFix") + (c.items.some((p) => !p.course.mandatoryFor.includes(state.dept))
+            ? " " + t("hintOptionalSwap") : ""));
 
   return `
   <div class="warn warn--${c.type}">
     <div class="warn-head">
       <span class="warn-icon">${ICONS.alert}</span>
-      <strong>${esc(c.type === "lecture" ? t("conflictLecture") : t("conflictSection"))}</strong>
+      <strong>${esc(state.allowConflicts ? t("ttConflictWaivedBadge") + " — " : "")}${esc(c.type === "lecture" ? t("conflictLecture") : t("conflictSection"))}</strong>
       <span class="warn-meta">${esc(tr(day))} · ${esc(t("slotWord"))} ${slot.n} (${esc(slot.short)} / ${esc(slot.long)})</span>
     </div>
     <ul class="warn-items">${items}</ul>
@@ -1517,7 +1753,15 @@ function renderTimetablePanel(model) {
   return `
   <section class="timetable-panel" id="timetable">
     <div class="tt-head">
-      <h2 class="tt-title">${esc(t("myTimetable"))}</h2>
+      <div class="tt-head-start">
+        <h2 class="tt-title">${esc(t("myTimetable"))}</h2>
+        <div class="tt-legend-bar" aria-label="Legend">
+          <span class="tt-legend-item"><span class="tt-legend-swatch tt-legend-swatch--lecture"></span>${esc(t("legendLecture"))}</span>
+          <span class="tt-legend-item"><span class="tt-legend-swatch tt-legend-swatch--section"></span>${esc(t("legendSection"))}</span>
+          <span class="tt-legend-item"><span class="tt-legend-swatch tt-legend-swatch--pinned"></span>${esc(t("legendPinned"))}</span>
+          <span class="tt-legend-item"><span class="tt-legend-swatch tt-legend-swatch--conflict"></span>${esc(t("legendConflict"))}</span>
+        </div>
+      </div>
       <div class="tt-actions">
         ${hasConflicts ? `
           <button class="btn btn-primary btn-small open-optimizer-trigger tt-opt-btn" type="button" title="${esc(t("optSolveClashesBtn"))}">
@@ -1561,7 +1805,7 @@ function renderTimetablePanel(model) {
             ${SLOTS.map((sl) => `
             <th class="tt-slothead">
               <span class="tt-slot-n">${esc(t("slotWord"))} ${sl.n}</span>
-              <span class="tt-slot-t">${esc(sl.short)}<br>${esc(sl.long)}</span>
+              <span class="tt-slot-t"><span class="tt-slot-short">${esc(sl.short)}</span><span class="tt-slot-long">${esc(sl.long)}</span></span>
             </th>`).join("")}
           </tr>
         </thead>
@@ -1622,12 +1866,25 @@ function renderPlanner() {
         <span class="summary-value" id="selectedCounter">${state.selected.length} ${esc(t("coursesUnit"))}</span>
       </div>
       <div class="summary-nav">
+        <button class="btn-conflict-quick ${state.allowConflicts ? "is-active" : ""}" id="summaryConflictToggleBtn" type="button" title="${esc(t("conflictSummaryToggleHint"))}">
+          ${ICONS.shieldAlert}
+          <span>${esc(state.allowConflicts ? t("conflictSummaryOn") : t("conflictSummaryOff"))}</span>
+        </button>
         <button class="btn btn-ghost btn-small" data-goto="#catalog" type="button">${ICONS.book}<span>${esc(t("navCourses"))}</span></button>
         <button class="btn btn-ghost btn-small" data-goto="#registered" type="button">${ICONS.check}<span>${esc(t("navRegistered"))}</span></button>
         <button class="btn btn-ghost btn-small" data-goto="#timetable" type="button">${ICONS.calendar}<span>${esc(t("navTimetable"))}</span></button>
       </div>
       <button class="btn btn-ghost btn-small" id="editInfoBtn" type="button">${esc(t("editInfo"))}</button>
     </div>
+
+    ${state.allowConflicts ? `
+    <div class="conflict-active-strip" role="status">
+      <div class="conflict-strip-main">
+        ${ICONS.shieldAlert}
+        <strong>${esc(t("conflictModeWarningTitle"))}:</strong>
+        <span>${esc(t("conflictModeWarningBody"))}</span>
+      </div>
+    </div>` : ""}
 
     <div class="catalog-col" id="catalog">
       <header class="catalog-header">
@@ -1665,6 +1922,22 @@ function bindPlanner() {
   const editBtn = $("#editInfoBtn");
   if (editBtn) editBtn.addEventListener("click", goBackToSetup);
 
+  const summaryConflictToggleBtn = $("#summaryConflictToggleBtn");
+  if (summaryConflictToggleBtn) {
+    summaryConflictToggleBtn.addEventListener("click", () => {
+      toggleConflictMode();
+    });
+  }
+
+  /* Pin section buttons (both in Registered List and inside Timetable Grid cells) */
+  $$("[data-pin-course]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      togglePinSection(btn.getAttribute("data-pin-course"));
+    });
+  });
+
   /* Smart Optimizer bindings - wire all trigger touchpoints */
   $$(".open-optimizer-trigger").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1685,6 +1958,22 @@ function bindPlanner() {
   if (optCloseBtn) {
     optCloseBtn.addEventListener("click", () => {
       optState.isOpen = false;
+      renderAll();
+    });
+  }
+
+  const optEnableConflictBtn = $("#optEnableConflictBtn");
+  if (optEnableConflictBtn) {
+    optEnableConflictBtn.addEventListener("click", () => {
+      toggleConflictMode(true);
+    });
+  }
+
+  const optUnpinAllRetryBtn = $("#optUnpinAllRetryBtn");
+  if (optUnpinAllRetryBtn) {
+    optUnpinAllRetryBtn.addEventListener("click", () => {
+      state.pinnedSections = {};
+      persist();
       renderAll();
     });
   }
@@ -1770,8 +2059,26 @@ function bindPlanner() {
           setTimeout(() => box.closest(".course-card")?.classList.remove("shake"), 400);
           return;
         }
+
+        const clashInfo = typeof Timetable !== "undefined" && Timetable.getCourseConflictWithState
+          ? Timetable.getCourseConflictWithState(idx, state)
+          : { hasConflict: false, conflictingCourses: [], preferredSafeLecGroup: null };
+
+        if (clashInfo.hasConflict && !state.allowConflicts) {
+          box.checked = false;
+          const clashNames = formatCourseShortList(clashInfo.conflictingCourses);
+          showToast(t("toastConflictLockedCourse").replace("{courses}", clashNames));
+          box.closest(".course-card")?.classList.add("shake");
+          setTimeout(() => box.closest(".course-card")?.classList.remove("shake"), 400);
+          return;
+        }
+
         if (!state.selected.includes(idx)) {
           state.selected.push(idx);
+          if (clashInfo.preferredSafeLecGroup) {
+            state.lecturePicks = state.lecturePicks || {};
+            state.lecturePicks[idx] = clashInfo.preferredSafeLecGroup;
+          }
           if (typeof Analytics !== "undefined") {
             Analytics.trackCourseToggled(course?.code, tr(course?.name), true);
           }
@@ -1802,9 +2109,13 @@ function bindPlanner() {
           const currentPick = state.picks[idx];
           if (currentPick != null && !sched.sections[currentPick]) {
             delete state.picks[idx];
+            if (state.pinnedSections) delete state.pinnedSections[idx];
           }
         }
       });
+      if (!state.allowConflicts) {
+        sanitizeConflictsWhenLocking();
+      }
       persist();
       renderAll();
     });
@@ -1814,6 +2125,11 @@ function bindPlanner() {
     btn.addEventListener("click", () => {
       const idx = Number(btn.getAttribute("data-idx"));
       const targetGroup = btn.getAttribute("data-lecgroup");
+      const grpClash = Timetable.getLectureGroupConflictWithState(idx, targetGroup, state);
+      if (grpClash.hasConflict && !state.allowConflicts) {
+        showToast(t("toastConflictLockedSection").replace("{courses}", formatCourseShortList(grpClash.conflictingCourses)));
+        return;
+      }
       state.lecturePicks = state.lecturePicks || {};
       state.lecturePicks[idx] = targetGroup;
       persist();
@@ -1827,8 +2143,15 @@ function bindPlanner() {
       const course = COURSES[idx];
       if (sel.value === "") {
         delete state.picks[idx];
+        if (state.pinnedSections) delete state.pinnedSections[idx];
       } else {
         const pickIdx = Number(sel.value);
+        const secClash = Timetable.getSectionConflictWithState(idx, pickIdx, state);
+        if (secClash.hasConflict && !state.allowConflicts) {
+          showToast(t("toastConflictLockedSection").replace("{courses}", formatCourseShortList(secClash.conflictingCourses)));
+          renderAll();
+          return;
+        }
         state.picks[idx] = pickIdx;
         const sched = typeof Timetable !== "undefined" && Timetable.getCourseSchedule
           ? Timetable.getCourseSchedule(course, idx, state)
@@ -1849,6 +2172,7 @@ function bindPlanner() {
       const course = COURSES[idx];
       state.selected = state.selected.filter((i) => i !== idx);
       delete state.picks[idx];
+      if (state.pinnedSections) delete state.pinnedSections[idx];
       if (state.lecturePicks) delete state.lecturePicks[idx];
       if (state.attendance) delete state.attendance[idx];
       if (typeof Analytics !== "undefined") {
